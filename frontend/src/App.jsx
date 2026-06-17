@@ -13,6 +13,7 @@ import Admin from "./pages/Admin";
 import AdminVideo from "./components/AdminVideo"
 import AdminDelete from "./components/AdminDelete"
 import AdminUpload from "./components/AdminUpload"
+import AdminLayout from "./components/AdminLayout";
 
 function App(){
   
@@ -26,7 +27,7 @@ function App(){
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">
-      <span className="loading loading-spinner loading-lg"></span>
+      <span className="loading loading-spinner loading-lg text-primary"></span>
     </div>;
   }
 
@@ -36,15 +37,18 @@ function App(){
       <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
-      <Route path="/admin" element={isAuthenticated && user?.role === 'admin' ? <Admin /> : <Navigate to="/" />} />
-      <Route path="/admin/create" element={isAuthenticated && user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" />} />
-      <Route path="/admin/delete" element={isAuthenticated && user?.role === 'admin' ? <AdminDelete /> : <Navigate to="/" />} />
-      <Route path="/admin/video" element={isAuthenticated && user?.role === 'admin' ? <AdminVideo /> : <Navigate to="/" />} />
-      <Route path="/admin/upload/:problemId" element={isAuthenticated && user?.role === 'admin' ? <AdminUpload /> : <Navigate to="/" />} />
       <Route path="/problem/:problemId" element={<ProblemPage/>}></Route>
-      <Route path="/admin/update" element={<UpdateProblemList />} />
-      <Route path="/admin/update/:id" element={<UpdateProblem />} />
-      
+
+      {/* Admin Routes Wrapped in AdminLayout */}
+      <Route path="/admin" element={isAuthenticated && user?.role === 'admin' ? <AdminLayout /> : <Navigate to="/" />}>
+        <Route index element={<Admin />} />
+        <Route path="create" element={<AdminPanel />} />
+        <Route path="delete" element={<AdminDelete />} />
+        <Route path="video" element={<AdminVideo />} />
+        <Route path="upload/:problemId" element={<AdminUpload />} />
+        <Route path="update" element={<UpdateProblemList />} />
+        <Route path="update/:id" element={<UpdateProblem />} />
+      </Route>
     </Routes>
   </>
   )

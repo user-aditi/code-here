@@ -1,15 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Pause, Play } from 'lucide-react';
 
-
-
 const Editorial = ({ secureUrl, thumbnailUrl, duration }) => {
-
-
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
 
   // Format seconds to MM:SS
   const formatTime = (seconds) => {
@@ -44,64 +39,67 @@ const Editorial = ({ secureUrl, thumbnailUrl, duration }) => {
   }, []);
 
   return (
-    <div 
-      className="relative w-full max-w-2xl mx-auto rounded-xl overflow-hidden shadow-lg"
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-    >
+    <div className="relative w-full max-w-3xl mx-auto rounded-2xl overflow-hidden shadow-2xl group border border-white/10 bg-black">
       {/* Video Element */}
       <video
         ref={videoRef}
         src={secureUrl}
         poster={thumbnailUrl}
         onClick={togglePlayPause}
-        className="w-full aspect-video bg-black cursor-pointer"
+        className="w-full aspect-video bg-black cursor-pointer object-cover"
       />
       
       {/* Video Controls Overlay */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 transition-opacity ${
-          isHovering || !isPlaying ? 'opacity-100' : 'opacity-0'
+        className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6 transition-all duration-300 ${
+          isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
         }`}
       >
-        {/* Play/Pause Button */}
-        <button
-          onClick={togglePlayPause}
-          className="btn btn-circle btn-primary mr-3"
-          aria-label={isPlaying ? "Pause" : "Play"}
-        >
-          {isPlaying ? (
-            <Pause/>
-          ) : (
-            <Play/>
-          )}
-        </button>
-        
-        {/* Progress Bar */}
-        <div className="flex items-center w-full mt-2">
-          <span className="text-white text-sm mr-2">
-            {formatTime(currentTime)}
-          </span>
-          <input
-            type="range"
-            min="0"
-            max={duration}
-            value={currentTime}
-            onChange={(e) => {
-              if (videoRef.current) {
-                videoRef.current.currentTime = Number(e.target.value);
-              }
-            }}
-            className="range range-primary range-xs flex-1"
-          />
-          <span className="text-white text-sm ml-2">
-            {formatTime(duration)}
-          </span>
+        <div className="flex items-center gap-4">
+          {/* Play/Pause Button */}
+          <button
+            onClick={togglePlayPause}
+            className="btn btn-circle btn-primary btn-sm shadow-lg hover:scale-110 transition-transform"
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-1" />}
+          </button>
+          
+          {/* Progress Bar */}
+          <div className="flex items-center gap-3 w-full group/progress cursor-pointer">
+            <span className="text-white/90 text-sm font-mono tracking-wider w-12 text-right">
+              {formatTime(currentTime)}
+            </span>
+            <div className="relative flex-1 h-2 flex items-center">
+              <input
+                type="range"
+                min="0"
+                max={duration || 100}
+                value={currentTime}
+                onChange={(e) => {
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = Number(e.target.value);
+                  }
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden group-hover/progress:h-2 transition-all">
+                <div 
+                  className="h-full bg-primary relative" 
+                  style={{ width: `${(currentTime / (duration || 100)) * 100}%` }}
+                >
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full scale-0 group-hover/progress:scale-100 transition-transform shadow-md"></div>
+                </div>
+              </div>
+            </div>
+            <span className="text-white/60 text-sm font-mono tracking-wider w-12">
+              {formatTime(duration || 0)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
-
 
 export default Editorial;

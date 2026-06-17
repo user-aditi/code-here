@@ -1,8 +1,41 @@
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router'; // Fixed import
+import { NavLink } from 'react-router'; 
 import { useDispatch, useSelector } from 'react-redux';
 import axiosClient from '../utils/axiosClient';
 import { logoutUser } from '../authSlice';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Badge } from '../components/ui/badge';
+import { CheckCircle2, Circle } from 'lucide-react';
+
+const ProgressRing = ({ title, value, max, colorClass }) => {
+  const percentage = max > 0 ? Math.round((value / max) * 100) : 0;
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center p-4 bg-base-200/50 rounded-2xl border border-white/5 shadow-sm">
+      <div className="relative flex items-center justify-center mb-3">
+        <svg className="transform -rotate-90 w-24 h-24">
+          <circle cx="48" cy="48" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-base-300" />
+          <circle 
+            cx="48" cy="48" r={radius} 
+            stroke="currentColor" strokeWidth="8" fill="transparent" 
+            strokeDasharray={circumference} 
+            strokeDashoffset={strokeDashoffset} 
+            className={`transition-all duration-1000 ease-out ${colorClass}`} 
+            strokeLinecap="round" 
+          />
+        </svg>
+        <div className="absolute flex flex-col items-center justify-center">
+          <span className="text-xl font-bold">{percentage}%</span>
+          <span className="text-[10px] text-base-content/50 uppercase tracking-wider">{value}/{max}</span>
+        </div>
+      </div>
+      <span className="font-semibold text-sm tracking-wide">{title}</span>
+    </div>
+  );
+};
 
 function Homepage() {
   const dispatch = useDispatch();
@@ -14,6 +47,7 @@ function Homepage() {
     tag: 'all',
     status: 'all' 
   });
+  const [sortConfig, setSortConfig] = useState({ key: 'title', direction: 'asc' });
 
   useEffect(() => {
     const fetchProblems = async () => {
@@ -40,133 +74,213 @@ function Homepage() {
 
   const handleLogout = () => {
     dispatch(logoutUser());
-    setSolvedProblems([]); // Clear solved problems on logout
+    setSolvedProblems([]);
   };
+
+  // Stats calculation
+  const stats = {
+    easy: { total: 0, solved: 0 },
+    medium: { total: 0, solved: 0 },
+    hard: { total: 0, solved: 0 },
+  };
+
+  problems.forEach(p => {
+    if (stats[p.difficulty]) {
+      stats[p.difficulty].total++;
+    }
+  });
+
+  solvedProblems.forEach(p => {
+    if (stats[p.difficulty]) {
+      stats[p.difficulty].solved++;
+    }
+  });
 
   const filteredProblems = problems.filter(problem => {
     const difficultyMatch = filters.difficulty === 'all' || problem.difficulty === filters.difficulty;
     const tagMatch = filters.tag === 'all' || problem.tags === filters.tag;
+    const isSolved = solvedProblems.some(sp => sp._id === problem._id);
     const statusMatch = filters.status === 'all' || 
-                      solvedProblems.some(sp => sp._id === problem._id);
+                        (filters.status === 'solved' ? isSolved : !isSolved);
     return difficultyMatch && tagMatch && statusMatch;
   });
 
+  // Sorting
+  const sortedProblems = [...filteredProblems].sort((a, b) => {
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === 'asc' ? -1 : 1;
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
   return (
-    <div className="min-h-screen bg-base-300">
-      {/* Navigation Bar */}
-      <nav className="navbar bg-base-100/70 backdrop-blur-md shadow-lg px-6 sticky top-0 z-50 border-b border-white/5">
-        <div className="flex-1">
-          <NavLink to="/" className="btn btn-ghost text-2xl font-bold tracking-tight text-primary">LeetCode</NavLink>
-        </div>
-        <div className="flex-none gap-4">
-          <div className="dropdown dropdown-end">
-            <div tabIndex={0} className="btn btn-ghost border border-white/10 rounded-full px-6 transition-all hover:bg-base-200 hover:border-white/20 shadow-sm">
-              <span className="text-sm font-medium">{user?.firstName || 'User'}</span>
+    <div className="min-h-screen bg-base-300 font-sans">
+      {/* Sticky Glass Navbar */}
+      <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-base-100/70 border-b border-white/10 shadow-sm supports-[backdrop-filter]:bg-base-100/60">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
+              <span className="font-bold text-white text-lg leading-none">&lt;/&gt;</span>
             </div>
-            <ul className="mt-3 p-3 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-box w-52 border border-white/10">
-              <li><button onClick={handleLogout} className="text-error hover:bg-error/10">Logout</button></li>
-              {user?.role === 'admin' && <li><NavLink to="/admin" className="hover:bg-primary/10 hover:text-primary mt-1">Admin Dashboard</NavLink></li>}
-            </ul>
+            <NavLink to="/" className="text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-base-content to-base-content/70">code-here</NavLink>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="dropdown dropdown-end">
+              <div tabIndex={0} className="btn btn-ghost btn-sm rounded-full px-4 border border-white/10 hover:bg-base-200/50 hover:border-white/20 transition-all">
+                <span className="text-sm font-medium">{user?.firstName || 'User'}</span>
+              </div>
+              <ul className="mt-3 p-2 shadow-2xl menu menu-sm dropdown-content bg-base-200/95 backdrop-blur-xl rounded-xl w-52 border border-white/10">
+                <li><button onClick={handleLogout} className="text-error hover:bg-error/10 hover:text-error rounded-lg">Logout</button></li>
+                {user?.role === 'admin' && <div className="divider my-1"></div>}
+                {user?.role === 'admin' && <li><NavLink to="/admin" className="hover:bg-primary/10 hover:text-primary rounded-lg font-medium">Admin Dashboard</NavLink></li>}
+              </ul>
+            </div>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="container mx-auto p-8 max-w-5xl">
+      <div className="container mx-auto p-6 md:p-8 max-w-6xl space-y-10">
         
-        {/* Header Section */}
-        <div className="mb-10 text-center space-y-4">
-          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Problem Collection</h1>
-          <p className="text-base-content/70">Sharpen your coding skills with our curated list of algorithmic challenges.</p>
+        {/* Dashboard Header & Progress Rings */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-center">
+          <div className="lg:col-span-1 space-y-3">
+            <h1 className="text-4xl font-extrabold tracking-tight">Dashboard</h1>
+            <p className="text-base-content/60 text-sm leading-relaxed">Track your progress and tackle new algorithmic challenges.</p>
+          </div>
+          <div className="lg:col-span-3 grid grid-cols-3 gap-4">
+            <ProgressRing title="Easy" value={stats.easy.solved} max={stats.easy.total} colorClass="text-success" />
+            <ProgressRing title="Medium" value={stats.medium.solved} max={stats.medium.total} colorClass="text-warning" />
+            <ProgressRing title="Hard" value={stats.hard.solved} max={stats.hard.total} colorClass="text-error" />
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-8 bg-base-100/50 p-4 rounded-2xl backdrop-blur-sm border border-white/5 shadow-sm">
-          {/* New Status Filter */}
-          <select 
-            className="select select-bordered bg-base-200/50 border-white/10 hover:border-white/20 transition-colors"
-            value={filters.status}
-            onChange={(e) => setFilters({...filters, status: e.target.value})}
-          >
-            <option value="all">All Problems</option>
-            <option value="solved">Solved Problems</option>
-          </select>
+        {/* Problems Section */}
+        <div className="bg-base-100/50 backdrop-blur-sm rounded-3xl border border-white/5 shadow-xl overflow-hidden">
+          {/* Filters Bar */}
+          <div className="p-6 border-b border-white/5 bg-base-200/30 flex flex-wrap gap-4 items-center justify-between">
+            <div className="flex flex-wrap gap-3">
+              <select 
+                className="select select-sm select-bordered bg-base-100 border-white/10 hover:border-white/20 transition-colors focus:ring-2 focus:ring-primary/50 font-medium"
+                value={filters.status}
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+              >
+                <option value="all">Status: All</option>
+                <option value="solved">Status: Solved</option>
+                <option value="unsolved">Status: Unsolved</option>
+              </select>
 
-          <select 
-            className="select select-bordered bg-base-200/50 border-white/10 hover:border-white/20 transition-colors"
-            value={filters.difficulty}
-            onChange={(e) => setFilters({...filters, difficulty: e.target.value})}
-          >
-            <option value="all">All Difficulties</option>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
+              <select 
+                className="select select-sm select-bordered bg-base-100 border-white/10 hover:border-white/20 transition-colors focus:ring-2 focus:ring-primary/50 font-medium"
+                value={filters.difficulty}
+                onChange={(e) => setFilters({...filters, difficulty: e.target.value})}
+              >
+                <option value="all">Difficulty: All</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
 
-          <select 
-            className="select select-bordered bg-base-200/50 border-white/10 hover:border-white/20 transition-colors"
-            value={filters.tag}
-            onChange={(e) => setFilters({...filters, tag: e.target.value})}
-          >
-            <option value="all">All Tags</option>
-            <option value="array">Array</option>
-            <option value="linkedList">Linked List</option>
-            <option value="graph">Graph</option>
-            <option value="dp">DP</option>
-          </select>
-        </div>
-
-        {/* Problems List */}
-        <div className="grid gap-5">
-          {filteredProblems.map(problem => (
-            <div key={problem._id} className="card bg-base-100/80 backdrop-blur-md shadow-lg hover:shadow-2xl border border-white/5 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group">
-              <div className="card-body p-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="card-title text-xl font-semibold">
-                    <NavLink to={`/problem/${problem._id}`} className="hover:text-primary transition-colors flex items-center gap-3">
-                      <span className="text-base-content/50 group-hover:text-primary/50">#</span>
-                      {problem.title}
-                    </NavLink>
-                  </h2>
-                  {solvedProblems.some(sp => sp._id === problem._id) && (
-                    <div className="badge badge-success badge-outline gap-1 px-3 py-3 font-medium bg-success/10 border-success/30">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      Solved
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex gap-3 mt-4">
-                  <div className={`badge badge-outline py-3 px-4 font-medium ${getDifficultyBadgeColor(problem.difficulty)}`}>
-                    {problem.difficulty}
-                  </div>
-                  <div className="badge badge-info badge-outline py-3 px-4 font-medium bg-info/5 border-info/30">
-                    {problem.tags}
-                  </div>
-                </div>
-              </div>
+              <select 
+                className="select select-sm select-bordered bg-base-100 border-white/10 hover:border-white/20 transition-colors focus:ring-2 focus:ring-primary/50 font-medium"
+                value={filters.tag}
+                onChange={(e) => setFilters({...filters, tag: e.target.value})}
+              >
+                <option value="all">Tags: All</option>
+                <option value="array">Array</option>
+                <option value="linkedList">Linked List</option>
+                <option value="graph">Graph</option>
+                <option value="dp">DP</option>
+              </select>
             </div>
-          ))}
-          {filteredProblems.length === 0 && (
-            <div className="text-center py-20 bg-base-100/30 rounded-2xl border border-dashed border-white/10">
-              <p className="text-base-content/50 text-lg">No problems found matching your filters.</p>
+            <div className="text-sm font-medium text-base-content/50">
+              Showing {sortedProblems.length} problems
             </div>
-          )}
+          </div>
+
+          {/* Data Table */}
+          <Table>
+            <TableHeader className="bg-base-200/50">
+              <TableRow className="hover:bg-transparent border-white/5">
+                <TableHead className="w-16 text-center">Status</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:text-primary transition-colors font-bold"
+                  onClick={() => handleSort('title')}
+                >
+                  Title {sortConfig.key === 'title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead 
+                  className="w-32 cursor-pointer hover:text-primary transition-colors font-bold"
+                  onClick={() => handleSort('difficulty')}
+                >
+                  Difficulty {sortConfig.key === 'difficulty' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead className="w-48 font-bold">Tags</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedProblems.length > 0 ? (
+                sortedProblems.map((problem, index) => {
+                  const isSolved = solvedProblems.some(sp => sp._id === problem._id);
+                  return (
+                    <TableRow key={problem._id} className="group hover:bg-base-200/50 transition-colors border-white/5 cursor-pointer">
+                      <TableCell className="text-center">
+                        {isSolved ? (
+                          <CheckCircle2 className="w-5 h-5 text-success mx-auto" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-base-content/20 mx-auto" />
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium text-base-content/90 group-hover:text-primary transition-colors">
+                        <NavLink to={`/problem/${problem._id}`} className="block w-full">
+                          <span className="text-base-content/30 mr-3 text-xs font-mono">{String(index + 1).padStart(3, '0')}</span>
+                          {problem.title}
+                        </NavLink>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            problem.difficulty === 'easy' ? 'success' : 
+                            problem.difficulty === 'medium' ? 'warning' : 'destructive'
+                          }
+                          className="bg-opacity-15 border-transparent capitalize w-20 justify-center"
+                        >
+                          {problem.difficulty}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="bg-base-300/50 hover:bg-base-300 capitalize text-xs">
+                          {problem.tags}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-48 text-center text-base-content/40">
+                    No problems found matching your filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>
   );
 }
-
-const getDifficultyBadgeColor = (difficulty) => {
-  switch (difficulty.toLowerCase()) {
-    case 'easy': return 'badge-success';
-    case 'medium': return 'badge-warning';
-    case 'hard': return 'badge-error';
-    default: return 'badge-neutral';
-  }
-};
 
 export default Homepage;
