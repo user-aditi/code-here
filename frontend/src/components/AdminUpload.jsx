@@ -98,10 +98,10 @@ function AdminUpload(){
       };
     
       return (
-        <div className="max-w-md mx-auto p-6">
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Upload Video</h2>
+      <div className="max-w-md mx-auto p-6">
+        <div className="bg-base-100/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+          <div className="card-body p-0">
+            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-6">Upload Video</h2>
               
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 {/* File Input */}

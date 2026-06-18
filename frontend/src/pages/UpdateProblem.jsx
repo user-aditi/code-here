@@ -28,6 +28,8 @@ function UpdateProblem() {
     control,
     handleSubmit,
     reset, // Use reset to populate form
+    watch,
+    trigger,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(problemSchema),
@@ -62,13 +64,15 @@ function UpdateProblem() {
 //   console.log('Form Errors:', errors);
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Update Problem</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight mb-6 text-white">Update Problem</h1>
       <ProblemForm
         handleSubmit={handleSubmit}
         onSubmit={onSubmit}
         register={register}
         control={control}
         errors={errors}
+        watch={watch}
+        trigger={trigger}
         isUpdating={true}
       />
     </div>

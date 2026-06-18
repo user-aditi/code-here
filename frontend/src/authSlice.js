@@ -8,7 +8,7 @@ export const registerUser = createAsyncThunk(
     const response =  await axiosClient.post('/user/register', userData);
     return response.data.user;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue(typeof error.response?.data === 'string' ? { message: error.response.data } : error.response?.data || error);
     }
   }
 );
@@ -21,7 +21,7 @@ export const loginUser = createAsyncThunk(
       const response = await axiosClient.post('/user/login', credentials);
       return response.data.user;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue(typeof error.response?.data === 'string' ? { message: error.response.data } : error.response?.data || error);
     }
   }
 );
@@ -49,6 +49,18 @@ export const logoutUser = createAsyncThunk(
       return null;
     } catch (error) {
       return rejectWithValue(error);
+    }
+  }
+);
+
+export const toggleBookmark = createAsyncThunk(
+  'auth/toggleBookmark',
+  async (problemId, { rejectWithValue }) => {
+    try {
+      const response = await axiosClient.post(`/dashboard/bookmark/${problemId}`);
+      return response.data.bookmarkedProblems;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error);
     }
   }
 );
@@ -132,6 +144,13 @@ const authSlice = createSlice({
         state.error = action.payload?.message || 'Something went wrong';
         state.isAuthenticated = false;
         state.user = null;
+      })
+      
+      // Toggle Bookmark Cases
+      .addCase(toggleBookmark.fulfilled, (state, action) => {
+        if (state.user) {
+          state.user.bookmarkedProblems = action.payload;
+        }
       });
   }
 });

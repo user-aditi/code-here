@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const {Schema} = mongoose;
 
 const problemSchema = new Schema({
+    problemNumber: {
+        type: Number,
+        unique: true
+    },
     title:{
         type:String,
         required:true
@@ -16,9 +20,22 @@ const problemSchema = new Schema({
         required:true,
     },
     tags:{
-        type:String,
-        enum:['array','linkedList','graph','dp'],
+        type:[String],
+        default:[],
         required:true
+    },
+    acceptanceRate: {
+        type: Number,
+        default: 0
+    },
+    status: {
+        type: String,
+        enum: ['active', 'archived'],
+        default: 'active'
+    },
+    frequency: {
+        type: Number,
+        default: 0
     },
     visibleTestCases:[
         {

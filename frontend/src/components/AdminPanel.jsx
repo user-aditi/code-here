@@ -44,6 +44,8 @@ function AdminPanel() {
     register,
     control,
     handleSubmit,
+    watch,
+    trigger,
     formState: { errors }
   } = useForm({
     resolver: zodResolver(problemSchema),
@@ -74,7 +76,7 @@ function AdminPanel() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2">Create New Problem</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-white">Create New Problem</h1>
         <p className="text-base-content/60">Fill out the details below to add a new challenge to the platform.</p>
       </div>
       
@@ -84,6 +86,8 @@ function AdminPanel() {
         register={register}
         control={control}
         errors={errors}
+        watch={watch}
+        trigger={trigger}
         isUpdating={false}
       />
     </div>

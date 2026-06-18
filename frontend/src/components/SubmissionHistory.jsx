@@ -12,7 +12,14 @@ const SubmissionHistory = ({ problemId }) => {
       try {
         setLoading(true);
         const response = await axiosClient.get(`/problem/submittedProblem/${problemId}`);
-        setSubmissions(response.data);
+        const data = response.data;
+        if (Array.isArray(data)) {
+          setSubmissions(data);
+        } else if (data && data.submissions) {
+          setSubmissions(data.submissions);
+        } else {
+          setSubmissions([]);
+        }
         setError(null);
       } catch (err) {
         setError('Failed to fetch submission history');

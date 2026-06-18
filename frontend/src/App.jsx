@@ -9,11 +9,15 @@ import AdminPanel from "./components/AdminPanel";
 import UpdateProblem from './pages/UpdateProblem.jsx';
 import UpdateProblemList from './pages/UpdateProblemList.jsx';
 import ProblemPage from "./pages/ProblemPage"
-import Admin from "./pages/Admin";
 import AdminVideo from "./components/AdminVideo"
 import AdminDelete from "./components/AdminDelete"
 import AdminUpload from "./components/AdminUpload"
 import AdminLayout from "./components/AdminLayout";
+import ProblemsPage from "./pages/user/Problems";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import ComingSoon from "./pages/ComingSoon";
+import ProfilePage from "./pages/user/Profile";
+import SettingsPage from "./pages/user/Settings";
 
 function App(){
   
@@ -34,14 +38,26 @@ function App(){
   return(
   <>
     <Routes>
-      <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
+      <Route path="/" element={isAuthenticated ? (user?.role === 'admin' ? <Navigate to="/admin" /> : <ProblemsPage />) : <Navigate to="/signup" />}></Route>
+      <Route path="/problems" element={isAuthenticated ? (user?.role === 'admin' ? <Navigate to="/admin" /> : <ProblemsPage />) : <Navigate to="/signup" />}></Route>
+      <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/signup" />}></Route>
+      <Route path="/settings" element={isAuthenticated ? <SettingsPage /> : <Navigate to="/signup" />}></Route>
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
       <Route path="/problem/:problemId" element={<ProblemPage/>}></Route>
 
+      {/* Coming Soon Routes */}
+      <Route path="/myschool" element={<ComingSoon />} />
+      <Route path="/contests" element={<ComingSoon />} />
+      <Route path="/leaderboard" element={<ComingSoon />} />
+
       {/* Admin Routes Wrapped in AdminLayout */}
-      <Route path="/admin" element={isAuthenticated && user?.role === 'admin' ? <AdminLayout /> : <Navigate to="/" />}>
-        <Route index element={<Admin />} />
+      <Route path="/admin" element={isAuthenticated && user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />}>
+      </Route>
+      
+      {/* Fallback Legacy Admin Routes */}
+      <Route path="/admin-legacy" element={isAuthenticated && user?.role === 'admin' ? <AdminLayout /> : <Navigate to="/" />}>
+        <Route index element={<AdminDashboard />} />
         <Route path="create" element={<AdminPanel />} />
         <Route path="delete" element={<AdminDelete />} />
         <Route path="video" element={<AdminVideo />} />

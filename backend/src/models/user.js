@@ -41,6 +41,26 @@ const userSchema = new Schema({
     password:{
         type:String,
         required: true
+    },
+    rating: {
+        type: Number,
+        default: 1200
+    },
+    studentClass: {
+        type: String,
+        default: 'Unassigned'
+    },
+    bookmarkedProblems: {
+        type: [{
+            type: Schema.Types.ObjectId,
+            ref: 'problem',
+        }],
+        default: []
+    },
+    status: {
+        type: String,
+        enum: ['active', 'inactive'],
+        default: 'active'
     }
 },{
     timestamps:true

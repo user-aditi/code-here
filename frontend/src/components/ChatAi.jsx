@@ -48,6 +48,17 @@ function ChatAi({problem}) {
         }
     };
 
+    const suggestedQuestions = [
+        "Can you give me a hint?",
+        "Explain the brute force approach",
+        "How can I optimize this?",
+        "What edge cases should I consider?"
+    ];
+
+    const handleSuggestClick = (q) => {
+        onSubmit({ message: q });
+    };
+
     return (
         <div className="flex flex-col h-full bg-base-200/20 backdrop-blur-md relative">
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -65,10 +76,24 @@ function ChatAi({problem}) {
                                 msg.parts[0].text
                             )}
                         </div>
+                        {index === 0 && messages.length === 1 && (
+                            <div className="chat-footer mt-3 flex flex-col gap-2 w-full max-w-[90%] opacity-100">
+                                {suggestedQuestions.map((q, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleSuggestClick(q)}
+                                        className="w-full text-left px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[12px] font-medium rounded-lg transition-colors whitespace-normal leading-tight"
+                                    >
+                                        {q}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
                 <div ref={messagesEndRef} />
             </div>
+            
             <div className="p-4 bg-base-200/50 backdrop-blur-xl border-t border-white/5 sticky bottom-0">
                 <form 
                     onSubmit={handleSubmit(onSubmit)} 

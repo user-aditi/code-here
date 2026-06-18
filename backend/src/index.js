@@ -9,6 +9,8 @@ const problemRouter = require("./routes/problemCreator");
 const submitRouter = require("./routes/submit")
 const aiRouter = require("./routes/aiChatting")
 const videoRouter = require("./routes/videoCreator");
+const dashboardRouter = require("./routes/dashboard");
+const adminRouter = require("./routes/admin");
 const cors = require('cors')
 
 // console.log("Hello")
@@ -26,6 +28,8 @@ app.use('/problem',problemRouter);
 app.use('/submission',submitRouter);
 app.use('/ai',aiRouter);
 app.use("/video",videoRouter);
+app.use("/dashboard", dashboardRouter);
+app.use("/admin", adminRouter);
 
 
 const InitalizeConnection = async ()=>{

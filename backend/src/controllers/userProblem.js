@@ -68,8 +68,12 @@ const createProblem = async (req,res)=>{
 
       // We can store it in our DB
 
+    const lastProblem = await Problem.findOne().sort({ problemNumber: -1 });
+    const nextNumber = lastProblem && lastProblem.problemNumber ? lastProblem.problemNumber + 1 : 1;
+
     const userProblem =  await Problem.create({
         ...req.body,
+        problemNumber: nextNumber,
         problemCreator: req.result._id
       });
 
@@ -209,16 +213,61 @@ const getProblemById = async(req,res)=>{
 }
 
 const getAllProblem = async(req,res)=>{
-
   try{
-     
-    const getProblem = await Problem.find({}).select('_id title difficulty tags');
+    const { search, difficulty, status, tags, sortBy } = req.query;
+    let query = {};
+    
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };
+    }
+    if (difficulty && difficulty !== 'All') {
+      query.difficulty = difficulty.toLowerCase();
+    }
+    if (status && status !== 'All') {
+      const user = await User.findById(req.result._id).select('problemSolved');
+      if (status === 'Solved') {
+        query._id = { $in: user.problemSolved };
+      } else if (status === 'Unsolved') {
+        query._id = { $nin: user.problemSolved };
+      } else {
+        query.status = status;
+      }
+    }
+    if (tags) {
+      const tagsArray = tags.split(',').map(t => t.trim());
+      if (tagsArray.length > 0) {
+        query.tags = { $in: tagsArray };
+      }
+    }
 
-   if(getProblem.length==0)
-    return res.status(404).send("Problem is Missing");
+    let sortQuery = {};
+    if (sortBy === 'Popularity') {
+      sortQuery = { frequency: -1 };
+    } else if (sortBy === 'Acceptance') {
+      sortQuery = { acceptanceRate: -1 };
+    } else if (sortBy === 'Difficulty') {
+      sortQuery = { difficulty: 1 };
+    } else if (sortBy === 'Newest') {
+      sortQuery = { createdAt: -1 };
+    } else {
+      sortQuery = { _id: 1 };
+    }
 
+    const getProblem = await Problem.find(query)
+      .sort(sortQuery)
+      .select('_id title difficulty tags acceptanceRate frequency status');
 
-   res.status(200).send(getProblem);
+    const user = await User.findById(req.result._id).select('problemSolved');
+    const solvedSet = new Set(user?.problemSolved?.map(id => id.toString()) || []);
+
+    const enrichedProblems = getProblem.map(p => {
+      const problemObj = p.toObject();
+      problemObj.isSolved = solvedSet.has(p._id.toString());
+      return problemObj;
+    });
+
+    // Return empty array instead of 404 if no problems match filters
+    res.status(200).send(enrichedProblems);
   }
   catch(err){
     res.status(500).send("Error: "+err);
@@ -255,9 +304,9 @@ const submittedProblem = async(req,res)=>{
    const ans = await Submission.find({userId,problemId});
   
   if(ans.length==0)
-    res.status(200).send("No Submission is persent");
+    return res.status(200).send([]);
 
-  res.status(200).send(ans);
+  return res.status(200).send(ans);
 
   }
   catch(err){

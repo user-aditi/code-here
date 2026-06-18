@@ -1,21 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { useParams } from 'react-router';
-import axiosClient from "../utils/axiosClient"
-import SubmissionHistory from "../components/SubmissionHistory"
+import { ArrowLeft, Code2, PanelLeft, Play, Upload, Sparkles, Timer, Flame, ChevronDown, User, Settings, LogOut, CheckCircle, Clock, X, Lightbulb, ChevronRight, ChevronLeft, ChevronUp, TerminalSquare, Plus, Video, RotateCcw, RefreshCw, Send, Search, List, FileText, BookOpen, CheckSquare } from 'lucide-react';
+import { useDispatch, useSelector } from "react-redux";
+import { logoutUser } from "../authSlice";
+import axiosClient from "../utils/axiosClient";
+import SubmissionHistory from "../components/SubmissionHistory";
 import ChatAi from '../components/ChatAi';
 import Editorial from '../components/Editorial';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui/resizable';
 
 const langMap = {
-        cpp: 'C++',
-        java: 'Java',
-        javascript: 'JavaScript'
+  cpp: 'C++',
+  java: 'Java',
+  javascript: 'JavaScript',
+  python: 'Python'
 };
 
+const getLanguageForMonaco = (lang) => {
+  switch (lang) {
+    case 'javascript': return 'javascript';
+    case 'java': return 'java';
+    case 'cpp': return 'cpp';
+    case 'python': return 'python';
+    default: return 'javascript';
+  }
+};
 
-const ProblemPage = () => {
+const DiffBadge = ({ d }) => (
+  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${d === "easy" ? "bg-green-500/15 text-green-400 border border-green-500/20" :
+      d === "medium" ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
+        "bg-red-500/15 text-red-400 border border-red-500/20"
+    }`}>{d}</span>
+);
+
+export default function ProblemPage() {
+  const { problemId } = useParams();
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [code, setCode] = useState('');
@@ -23,511 +43,628 @@ const ProblemPage = () => {
   const [runResult, setRunResult] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
   const [activeLeftTab, setActiveLeftTab] = useState('description');
-  const [activeRightTab, setActiveRightTab] = useState('testcase'); // Default to console
+  const [activeRightTab, setActiveRightTab] = useState('testcases');
+  const [runState, setRunState] = useState("idle"); // idle | running | passed | failed
+  const [submitState, setSubmitState] = useState("idle");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [openHints, setOpenHints] = useState([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [aiCollapsed, setAiCollapsed] = useState(false);
+  const [allProblems, setAllProblems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const leftPanelRef = useRef(null);
+  const rightPanelRef = useRef(null);
+  const aiPanelRef = useRef(null);
   const editorRef = useRef(null);
-  let {problemId}  = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
 
-  
+  useEffect(() => {
+    let t;
+    if (isTimerRunning) {
+      t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    }
+    return () => clearInterval(t);
+  }, [isTimerRunning]);
 
-  const { handleSubmit } = useForm();
+  useEffect(() => {
+    const fetchAllProblems = async () => {
+      try {
+        const response = await axiosClient.get("/problem/getAllProblem");
+        if (response.data?.problems) {
+          setAllProblems(response.data.problems);
+        } else if (Array.isArray(response.data)) {
+          setAllProblems(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching all problems:', error);
+      }
+    };
+    fetchAllProblems();
+  }, []);
 
- useEffect(() => {
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
     const fetchProblem = async () => {
       setLoading(true);
       try {
-        
         const response = await axiosClient.get(`/problem/problemById/${problemId}`);
-       
-        
-        const initialCode = response.data.startCode.find(sc => sc.language === langMap[selectedLanguage]).initialCode;
-
-        setProblem(response.data);
-        
-        setCode(initialCode);
-        setLoading(false);
-        
+        const p = response.data;
+        setProblem(p);
+        const startCodeObj = p.startCode?.find(sc => sc.language === langMap[selectedLanguage]) || p.startCode[0];
+        setCode(startCodeObj?.initialCode || '');
       } catch (error) {
         console.error('Error fetching problem:', error);
+      } finally {
         setLoading(false);
       }
     };
-
     fetchProblem();
   }, [problemId]);
 
-  // Update code when language changes
   useEffect(() => {
     if (problem) {
-      const initialCode = problem.startCode.find(sc => sc.language === langMap[selectedLanguage]).initialCode;
-      setCode(initialCode);
+      const startCodeObj = problem.startCode?.find(sc => sc.language === langMap[selectedLanguage]) || problem.startCode[0];
+      if (startCodeObj) setCode(startCodeObj.initialCode);
     }
   }, [selectedLanguage, problem]);
 
-  const handleEditorChange = (value) => {
-    setCode(value || '');
-  };
-
-  const handleEditorDidMount = (editor) => {
-    editorRef.current = editor;
-  };
-
-  const handleLanguageChange = (language) => {
-    setSelectedLanguage(language);
-  };
-
   const handleRun = async () => {
-    setLoading(true);
+    setRunState("running");
+    setActiveRightTab("results");
     setRunResult(null);
-    
     try {
-      const response = await axiosClient.post(`/submission/run/${problemId}`, {
-        code,
-        language: selectedLanguage
-      });
-
+      const response = await axiosClient.post(`/submission/run/${problemId}`, { code, language: selectedLanguage });
       setRunResult(response.data);
-      setLoading(false);
-      setActiveRightTab('testcase');
-      
+      setRunState(response.data.success ? "passed" : "failed");
     } catch (error) {
       console.error('Error running code:', error);
-      setRunResult({
-        success: false,
-        error: 'Internal server error'
-      });
-      setLoading(false);
-      setActiveRightTab('testcase');
+      setRunResult({ success: false, error: 'Internal server error' });
+      setRunState("failed");
     }
   };
 
   const handleSubmitCode = async () => {
-    setLoading(true);
+    setSubmitState("running");
+    setActiveRightTab("results");
     setSubmitResult(null);
-    
     try {
-        const response = await axiosClient.post(`/submission/submit/${problemId}`, {
-        code:code,
-        language: selectedLanguage
-      });
-
-       setSubmitResult(response.data);
-       setLoading(false);
-       setActiveRightTab('result');
-      
+      const response = await axiosClient.post(`/submission/submit/${problemId}`, { code, language: selectedLanguage });
+      setSubmitResult(response.data);
+      setSubmitState("passed");
     } catch (error) {
       console.error('Error submitting code:', error);
-      setSubmitResult(null);
-      setLoading(false);
-      setActiveRightTab('result');
-    }
-  };
-
-  const getLanguageForMonaco = (lang) => {
-    switch (lang) {
-      case 'javascript': return 'javascript';
-      case 'java': return 'java';
-      case 'cpp': return 'cpp';
-      default: return 'javascript';
-    }
-  };
-
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty) {
-      case 'easy': return 'text-success';
-      case 'medium': return 'text-warning';
-      case 'hard': return 'text-error';
-      default: return 'text-gray-500';
+      setSubmitResult({ accepted: false, error: 'Internal server error' });
+      setSubmitState("failed");
     }
   };
 
   if (loading && !problem) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
+    return <div className="flex justify-center items-center min-h-screen bg-[#0d1117]"><span className="loading loading-spinner loading-lg text-primary"></span></div>;
   }
 
+  if (!problem) return null;
+
+  const lineCount = code.split("\n").length;
+
   return (
-    <div className="h-screen flex flex-col bg-base-300 overflow-hidden font-sans">
-      <ResizablePanelGroup direction="horizontal" className="h-full w-full">
-        {/* Left Panel */}
-        <ResizablePanel defaultSize={50} minSize={30} className="flex flex-col border-r border-white/5 bg-base-100/40 backdrop-blur-md">
-          {/* Left Tabs */}
-          <div className="tabs tabs-bordered bg-base-200/60 px-4 pt-2 border-b border-white/5 shadow-sm sticky top-0 z-10 flex-shrink-0">
-            <button 
-              className={`tab tab-lg transition-all ${activeLeftTab === 'description' ? 'tab-active font-bold text-primary border-primary' : 'hover:text-base-content/80'}`}
-              onClick={() => setActiveLeftTab('description')}
+    <div className="flex flex-col h-[100dvh] text-slate-300 font-sans" style={{ background: "#000000" }}>
+      {/* ── Workspace Header ── */}
+      <header className="flex items-center justify-between px-3 border-b border-white/10 shrink-0" style={{ height: "44px", background: "#0a0a0a" }}>
+        <div className="flex items-center gap-1">
+          <Link to="/" className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+            <div className="w-6 h-6 bg-primary rounded-lg flex items-center justify-center shrink-0">
+              <Code2 className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="text-xs font-bold text-white hidden md:block">Code-Here</span>
+          </Link>
+          <div className="w-px h-4 bg-white/10 mx-0.5" />
+          <Link to="/problems" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors text-xs font-medium">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">Problems</span>
+          </Link>
+          <div className="flex items-center gap-0.5 ml-1">
+            <button
+              onClick={() => {
+                if (allProblems.length > 0) {
+                  const currentIndex = allProblems.findIndex(p => p._id === problemId);
+                  const prevIndex = (currentIndex - 1 + allProblems.length) % allProblems.length;
+                  navigate(`/problem/${allProblems[prevIndex]._id}`);
+                }
+              }}
+              className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
-              Description
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            <button 
-              className={`tab tab-lg transition-all ${activeLeftTab === 'editorial' ? 'tab-active font-bold text-primary border-primary' : 'hover:text-base-content/80'}`}
-              onClick={() => setActiveLeftTab('editorial')}
+            <button
+              onClick={() => {
+                if (allProblems.length > 0) {
+                  const currentIndex = allProblems.findIndex(p => p._id === problemId);
+                  const nextIndex = (currentIndex + 1) % allProblems.length;
+                  navigate(`/problem/${allProblems[nextIndex]._id}`);
+                }
+              }}
+              className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
-              Editorial
+              <ChevronRight className="w-4 h-4" />
             </button>
-            <button 
-              className={`tab tab-lg transition-all ${activeLeftTab === 'solutions' ? 'tab-active font-bold text-primary border-primary' : 'hover:text-base-content/80'}`}
-              onClick={() => setActiveLeftTab('solutions')}
-            >
-              Solutions
-            </button>
-            <button 
-              className={`tab tab-lg transition-all ${activeLeftTab === 'submissions' ? 'tab-active font-bold text-primary border-primary' : 'hover:text-base-content/80'}`}
-              onClick={() => setActiveLeftTab('submissions')}
-            >
-              Submissions
-            </button>
-            <button 
-              className={`tab tab-lg transition-all ${activeLeftTab === 'chatAI' ? 'tab-active font-bold text-primary border-primary' : 'hover:text-base-content/80'}`}
-              onClick={() => setActiveLeftTab('chatAI')}
-            >
-              ChatAI
+            <button onClick={() => setDrawerOpen(!drawerOpen)} className="p-1 ml-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+              <List className="w-4 h-4" />
             </button>
           </div>
+        </div>
 
-          {/* Left Content */}
-          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-            {problem && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full">
-                {activeLeftTab === 'description' && (
-                  <div>
-                    <div className="flex flex-wrap items-center gap-4 mb-8">
-                      <h1 className="text-3xl font-extrabold tracking-tight">{problem.title}</h1>
-                      <div className={`badge badge-outline py-3 px-4 font-semibold ${getDifficultyColor(problem.difficulty).replace('text-', 'border-')} ${getDifficultyColor(problem.difficulty)} bg-base-200/50`}>
-                        {problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1)}
+        <div className="flex items-center gap-2 px-2">
+          <span className="text-xs font-semibold text-white max-w-[200px] truncate">{problem.title}</span>
+          <DiffBadge d={problem.difficulty} />
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button onClick={handleRun} disabled={runState === 'running'} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-medium text-white hover:bg-white/10 transition-colors">
+            {runState === 'running' ? <span className="loading loading-spinner loading-xs"></span> : <Play className="w-3 h-3 text-green-400" />}
+            Run
+          </button>
+          <button onClick={handleSubmitCode} disabled={submitState === 'running'} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary rounded-lg text-xs font-medium text-white hover:bg-primary/90 transition-colors">
+            {submitState === 'running' ? <span className="loading loading-spinner loading-xs"></span> : <Upload className="w-3 h-3" />}
+            Submit
+          </button>
+          <div className="w-px h-4 bg-white/10 mx-0.5" />
+          <button onClick={() => setAiOpen(!aiOpen)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${aiOpen ? "bg-purple-500/15 text-purple-400 border border-purple-500/30" : "text-slate-400 hover:text-white hover:bg-white/5"}`}>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">AI</span>
+          </button>
+          <div className="w-px h-4 bg-white/10 mx-0.5" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5">
+            <button onClick={() => setIsTimerRunning(!isTimerRunning)} className="hover:text-white transition-colors">
+              {isTimerRunning ? <span className="w-2.5 h-2.5 bg-red-400 block rounded-[2px]" /> : <Play className="w-3.5 h-3.5 text-green-400" />}
+            </button>
+            <Timer className="w-3.5 h-3.5 text-slate-400 ml-1" />
+            <span className="text-xs font-mono text-white">{fmt(elapsed)}</span>
+          </div>
+          <div className="relative">
+            <button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-1 p-0.5 rounded-lg hover:bg-white/5 transition-colors">
+              <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary">
+                 {user?.firstName?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+            {profileOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-44 bg-[#161B22] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                {[
+                  { icon: User, label: "Profile", path: "/profile" },
+                  { icon: Settings, label: "Settings", path: "/settings" },
+                ].map(({ icon: Icon, label, path }) => (
+                  <Link key={label} to={path} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                    <Icon className="w-3.5 h-3.5" />{label}
+                  </Link>
+                ))}
+                <div className="h-px bg-white/10 my-1" />
+                <button
+                  onClick={() => { dispatch(logoutUser()); navigate("/login"); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-400/10 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />Log Out
+                </button>
+              </div>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Problem Drawer Overlay ── */}
+      {drawerOpen && (
+        <div className="absolute top-[44px] left-0 w-80 h-[calc(100vh-44px)] bg-[#1e1e1e] border-r border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl">
+          <div className="p-3 border-b border-white/10 flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span>All Problems</span>
+              <button onClick={() => setDrawerOpen(false)} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search problems..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#2d2d2d] border border-white/10 rounded-md py-1.5 pl-8 pr-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-white/20 transition-colors"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col">
+            {allProblems.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase())).map((p) => (
+              <Link
+                key={p._id}
+                to={`/problem/${p._id}`}
+                onClick={() => setDrawerOpen(false)}
+                className={`px-4 py-3 text-xs border-b border-white/5 transition-colors ${p._id === problemId ? 'bg-primary/10 text-primary' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+              >
+                <div className="font-medium truncate">{p.title}</div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${p.difficulty === "easy" ? "bg-green-500/15 text-green-400" :
+                      p.difficulty === "medium" ? "bg-amber-500/15 text-amber-400" :
+                        "bg-red-500/15 text-red-400"
+                    }`}>{p.difficulty}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Main workspace ── */}
+      <div className="flex flex-1 overflow-hidden relative p-2 gap-2 bg-[#000000]">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Left Panel */}
+          <ResizablePanel
+            ref={leftPanelRef}
+            defaultSize={45}
+            minSize={15}
+            collapsible={true}
+            collapsedSize={4}
+            onCollapse={() => setLeftCollapsed(true)}
+            onExpand={() => setLeftCollapsed(false)}
+            className="flex flex-col relative"
+          >
+            {leftCollapsed ? (
+              <div className="w-full h-full flex flex-col items-center py-4 bg-[#161616] rounded-xl border border-white/10 cursor-pointer hover:bg-[#1f1f1f] transition-colors overflow-hidden" onClick={() => { leftPanelRef.current?.resize(45); setLeftCollapsed(false); }}>
+                <button className="mb-6 p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors shrink-0">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <div className="flex flex-col items-center gap-4 mt-4 w-full">
+                  {[
+                    { id: 'description', label: 'Description', icon: FileText },
+                    { id: 'editorial', label: 'Editorial', icon: BookOpen },
+                    { id: 'solutions', label: 'Solutions', icon: Lightbulb },
+                    { id: 'submissions', label: 'Submissions', icon: Clock }
+                  ].map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      onClick={(e) => { e.stopPropagation(); setActiveLeftTab(id); leftPanelRef.current?.resize(45); setLeftCollapsed(false); }}
+                      className={`flex flex-col items-center gap-1.5 transition-colors group p-2 rounded-lg hover:bg-white/5 ${activeLeftTab === id ? 'text-white' : 'text-slate-500'}`}
+                    >
+                      <Icon className="w-4 h-4 group-hover:text-white transition-colors" />
+                      <span
+                        className="text-[10px] font-medium tracking-widest uppercase group-hover:text-white transition-colors"
+                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
+                      >
+                        {label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-full flex flex-col bg-[#161616] rounded-xl border border-white/10 overflow-hidden">
+                <div className="flex items-center border-b border-white/10 shrink-0 overflow-x-auto bg-[#1a1a1a] px-2">
+                  {[
+                    { id: 'description', label: 'Description' },
+                    { id: 'editorial', label: 'Editorial' },
+                    { id: 'solutions', label: 'Solutions' },
+                    { id: 'submissions', label: 'Submissions' }
+                  ].map(({ id, label }) => (
+                    <button key={id} onClick={() => setActiveLeftTab(id)} className={`shrink-0 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${activeLeftTab === id ? 'text-white border-white' : 'text-slate-400 border-transparent hover:text-white'}`}>
+                      {label}
+                    </button>
+                  ))}
+                  <div className="ml-auto flex items-center pr-1 shrink-0">
+                    <button onClick={(e) => { e.stopPropagation(); leftPanelRef.current?.resize(4); setLeftCollapsed(true); }} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 text-sm custom-scrollbar">
+                  {activeLeftTab === 'description' && (
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-4">
+                        <DiffBadge d={problem.difficulty} />
+                        {problem.acceptanceRate && <span className="text-xs text-slate-400">{problem.acceptanceRate}% acceptance</span>}
                       </div>
-                      <div className="badge badge-primary badge-outline py-3 px-4 font-semibold bg-primary/10 border-primary/30">{problem.tags}</div>
-                    </div>
-
-                    <div className="prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-base-300/50 prose-pre:border prose-pre:border-white/5">
-                      <div className="whitespace-pre-wrap text-[15px] leading-loose text-base-content/90">
+                      <div className="prose prose-invert max-w-none prose-p:leading-relaxed text-slate-300 text-[13px] whitespace-pre-wrap">
                         {problem.description}
                       </div>
-                    </div>
-
-                    <div className="mt-12">
-                      <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        Examples
-                      </h3>
-                      <div className="space-y-6">
-                        {problem.visibleTestCases.map((example, index) => (
-                          <div key={index} className="bg-base-200/50 border border-white/5 p-6 rounded-2xl shadow-sm hover:border-white/10 transition-colors">
-                            <h4 className="font-bold mb-4 text-base-content/80 tracking-wide uppercase text-sm">Example {index + 1}</h4>
-                            <div className="space-y-4 text-[15px] font-mono">
-                              <div className="flex flex-col gap-1"><strong className="text-base-content/60 select-none">Input:</strong> <span className="bg-base-300/50 px-3 py-2 rounded-lg border border-white/5">{example.input}</span></div>
-                              <div className="flex flex-col gap-1"><strong className="text-base-content/60 select-none">Output:</strong> <span className="bg-base-300/50 px-3 py-2 rounded-lg border border-white/5">{example.output}</span></div>
-                              {example.explanation && (
-                                  <div className="flex flex-col gap-1 mt-2 font-sans"><strong className="text-base-content/60 select-none">Explanation:</strong> <span className="text-base-content/80">{example.explanation}</span></div>
-                              )}
+                      <div className="mt-6 space-y-4">
+                        {problem.visibleTestCases?.map((ex, i) => (
+                          <div key={i} className="bg-white/5 rounded-xl p-4">
+                            <p className="text-xs font-semibold text-slate-400 mb-2">Example {i + 1}</p>
+                            <div className="font-mono text-xs space-y-1">
+                              <p><span className="text-slate-500">Input: </span><span className="text-slate-300">{ex.input}</span></p>
+                              <p><span className="text-slate-500">Output: </span><span className="text-green-400">{ex.output}</span></p>
+                              {ex.explanation && <p className="text-slate-400 font-sans mt-2">Explanation: {ex.explanation}</p>}
                             </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeLeftTab === 'editorial' && (
-                  <div className="prose prose-invert max-w-none">
-                    <h2 className="text-2xl font-extrabold mb-6">Editorial</h2>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed bg-base-200/30 p-6 rounded-2xl border border-white/5">
-                      <Editorial secureUrl={problem.secureUrl} thumbnailUrl={problem.thumbnailUrl} duration={problem.duration}/>
-                    </div>
-                  </div>
-                )}
-
-                {activeLeftTab === 'solutions' && (
-                  <div>
-                    <h2 className="text-2xl font-extrabold mb-6">Solutions</h2>
-                    <div className="space-y-8">
-                      {problem.referenceSolution?.map((solution, index) => (
-                        <div key={index} className="border border-white/10 rounded-2xl overflow-hidden shadow-lg bg-base-200/30">
-                          <div className="bg-base-300/80 px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                            <h3 className="font-bold text-lg">{problem?.title}</h3>
-                            <span className="badge badge-primary">{solution?.language}</span>
-                          </div>
-                          <div className="p-0">
-                            <pre className="bg-transparent p-6 text-[15px] overflow-x-auto m-0">
-                              <code className="text-base-content/90 font-mono">{solution?.completeCode}</code>
-                            </pre>
+                      {problem.tags && problem.tags.length > 0 && (
+                        <div className="mt-6 mb-5">
+                          <p className="text-sm font-semibold text-white mb-2">Tags</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {problem.tags.map((t) => (
+                              <span key={t} className="text-xs px-2 py-1 bg-white/5 text-slate-400 rounded-lg">{t}</span>
+                            ))}
                           </div>
                         </div>
-                      )) || <div className="text-center py-20 bg-base-200/30 rounded-2xl border border-dashed border-white/10"><p className="text-base-content/50 text-lg">Solutions will be available after you solve the problem.</p></div>}
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {activeLeftTab === 'submissions' && (
-                  <div>
-                    <h2 className="text-2xl font-extrabold mb-6">My Submissions</h2>
-                    <div className="bg-base-200/30 rounded-2xl border border-white/5 p-2">
-                      <SubmissionHistory problemId={problemId} />
+                  )}
+                  {activeLeftTab === 'editorial' && (
+                    <div>
+                      {problem.secureUrl ? <Editorial secureUrl={problem.secureUrl} /> : <p className="text-slate-400">No video editorial available yet.</p>}
                     </div>
-                  </div>
-                )}
-
-                {activeLeftTab === 'chatAI' && (
-                  <div className="prose prose-invert max-w-none h-full flex flex-col">
-                    <h2 className="text-2xl font-extrabold mb-6 flex items-center gap-3 shrink-0">
-                      <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">AI Assistant</span>
-                    </h2>
-                    <div className="flex-1 bg-base-200/30 rounded-2xl border border-white/5 overflow-hidden">
-                      <ChatAi problem={problem}></ChatAi>
+                  )}
+                  {activeLeftTab === 'solutions' && (
+                    <div className="space-y-4">
+                      {problem.referenceSolution?.map((sol, i) => (
+                        <div key={i} className="bg-white/5 rounded-xl p-4">
+                          <div className="flex justify-between mb-2">
+                            <span className="text-xs font-semibold text-primary">{sol.language}</span>
+                          </div>
+                          <pre className="text-[11px] font-mono text-slate-300 overflow-x-auto">{sol.completeCode}</pre>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                  {activeLeftTab === 'submissions' && (
+                    <SubmissionHistory problemId={problemId} />
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        </ResizablePanel>
+          </ResizablePanel>
 
-        <ResizableHandle withHandle className="bg-white/5 hover:bg-primary/50 transition-colors" />
+          <ResizableHandle className="w-[4px] bg-transparent hover:bg-white/20 transition-colors cursor-col-resize" />
 
-        {/* Right Panel */}
-        <ResizablePanel defaultSize={50} minSize={30} className="flex flex-col bg-[#1e1e1e]">
-          <ResizablePanelGroup direction="vertical">
-            {/* Top Right Panel: Code Editor */}
-            <ResizablePanel defaultSize={70} minSize={30} className="flex flex-col">
-              {/* Language Selector */}
-              <div className="flex justify-between items-center px-4 py-2 bg-[#1e1e1e] border-b border-[#3c3c3c]">
-                <div className="flex gap-1 bg-[#2d2d2d] p-1 rounded-lg">
-                  {['javascript', 'java', 'cpp'].map((lang) => (
-                    <button
-                      key={lang}
-                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${selectedLanguage === lang ? 'bg-[#3e3e42] text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333333]'}`}
-                      onClick={() => handleLanguageChange(lang)}
-                    >
-                      {lang === 'cpp' ? 'C++' : lang === 'javascript' ? 'JavaScript' : 'Java'}
+          {/* Right Panel (Editor + Console) */}
+          <ResizablePanel defaultSize={55} className="flex flex-col relative">
+            <ResizablePanelGroup direction="vertical" className="flex-col">
+              {/* Editor */}
+              <ResizablePanel defaultSize={60} minSize={20} className="flex flex-col relative min-h-0">
+                <div className="w-full h-full flex flex-col bg-[#161616] rounded-xl border border-white/10 overflow-hidden min-h-0">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 shrink-0 bg-[#1a1a1a]">
+                    <div className="relative">
+                      <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="appearance-none bg-[#1a1a1a] border border-[#333] rounded-lg pl-3 pr-8 py-1.5 text-[13px] font-medium text-white focus:outline-none focus:border-primary/60 cursor-pointer shadow-sm hover:bg-[#222] transition-colors">
+                        {['javascript', 'java', 'cpp', 'python'].map((l) => (
+                          <option key={l} value={l} className="bg-[#0a0a0a] text-white py-1">{l === 'cpp' ? 'C++' : l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                    </div>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <button onClick={() => {
+                        const init = problem.startCode?.find(sc => sc.language === langMap[selectedLanguage])?.initialCode;
+                        if (init) setCode(init);
+                      }} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors" title="Reset Code">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-1 w-full relative bg-[#161616] min-h-0">
+                    <Editor
+                      height="100%"
+                      width="100%"
+                      language={getLanguageForMonaco(selectedLanguage)}
+                      value={code}
+                      onChange={setCode}
+                      theme="vs-dark"
+                      options={{
+                        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                        fontSize: 14,
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: true,
+                        tabSize: 4,
+                        wordWrap: 'on',
+                        padding: { top: 16 },
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 px-3 py-1 shrink-0 border-t border-white/10" style={{ background: "#1a1a1a", height: "24px" }}>
+                    <span className="text-[10px] text-slate-400">{selectedLanguage}</span>
+                    <span className="text-[10px] text-slate-500">• Ln {lineCount}</span>
+                    <div className="flex-1" />
+                    <span className="text-[10px] text-slate-500">Auto-saved</span>
+                  </div>
+                </div>
+              </ResizablePanel>
+
+              {/* <ResizableHandle className="h-[4px] bg-transparent hover:bg-white/20 transition-colors cursor-row-resize" /> */}
+
+              <ResizableHandle className="h-[4px] w-full flex items-center justify-center bg-transparent hover:bg-white/20 transition-colors cursor-row-resize [&>div]:rotate-90" />
+              {/* Console */}
+              <ResizablePanel
+                ref={rightPanelRef}
+                defaultSize={40}
+                minSize={15}
+                collapsible={true}
+                collapsedSize={6}
+                onCollapse={() => setRightCollapsed(true)}
+                onExpand={() => setRightCollapsed(false)}
+                className="flex flex-col relative"
+              >
+                {rightCollapsed ? (
+                  <div className="w-full h-full flex items-center px-4 bg-[#161616] rounded-xl border border-white/10 cursor-pointer hover:bg-[#1f1f1f] transition-colors overflow-hidden" onClick={() => { rightPanelRef.current?.resize(40); setRightCollapsed(false); }}>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+                        <CheckSquare className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-xs font-semibold">Testcase</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-slate-500 hover:text-white transition-colors">
+                        <TerminalSquare className="w-3.5 h-3.5" />
+                        <span className="text-xs font-semibold">Test Result</span>
+                      </div>
+                    </div>
+                    <button className="p-1.5 ml-auto hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+                      <ChevronUp className="w-5 h-5" />
                     </button>
-                  ))}
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    className={`btn btn-sm px-6 rounded-full border-none bg-[#3c3c3c] hover:bg-[#4d4d4d] text-white shadow-sm transition-all hover:shadow-md ${loading ? 'loading' : ''}`}
-                    onClick={handleRun}
-                    disabled={loading}
-                  >
-                    Run
-                  </button>
-                  <button
-                    className={`btn btn-sm px-6 rounded-full border-none bg-gradient-to-r from-primary to-secondary text-primary-content shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 ${loading ? 'loading' : ''}`}
-                    onClick={handleSubmitCode}
-                    disabled={loading}
-                  >
-                    Submit
-                  </button>
-                </div>
-              </div>
-
-              {/* Monaco Editor */}
-              <div className="flex-1 w-full h-full relative">
-                <Editor
-                  height="100%"
-                  width="100%"
-                  language={getLanguageForMonaco(selectedLanguage)}
-                  value={code}
-                  onChange={handleEditorChange}
-                  onMount={handleEditorDidMount}
-                  theme="vs-dark"
-                  options={{
-                    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                    fontSize: 15,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    tabSize: 4,
-                    insertSpaces: true,
-                    wordWrap: 'on',
-                    lineNumbers: 'on',
-                    glyphMargin: false,
-                    folding: true,
-                    lineDecorationsWidth: 10,
-                    lineNumbersMinChars: 4,
-                    renderLineHighlight: 'all',
-                    selectOnLineNumbers: true,
-                    roundedSelection: true,
-                    readOnly: false,
-                    cursorStyle: 'line',
-                    cursorBlinking: 'smooth',
-                    mouseWheelZoom: true,
-                    padding: { top: 16 },
-                  }}
-                />
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle className="bg-[#3c3c3c] hover:bg-primary/50 transition-colors" />
-
-            {/* Bottom Right Panel: Console/Result Drawer */}
-            <ResizablePanel defaultSize={30} minSize={10} className="flex flex-col bg-[#1e1e1e] overflow-hidden">
-              {/* Drawer Tabs */}
-              <div className="tabs tabs-bordered bg-[#252526] px-2 pt-2 border-b border-[#3c3c3c] shadow-md z-10 flex-shrink-0">
-                <button 
-                  className={`tab tab-sm transition-all ${activeRightTab === 'testcase' ? 'tab-active font-bold text-white border-primary' : 'text-gray-400 hover:text-gray-200'}`}
-                  onClick={() => setActiveRightTab('testcase')}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 mr-2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M4 15V9a2 2 0 012-2h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
-                  </svg>
-                  Console
-                </button>
-                <button 
-                  className={`tab tab-sm transition-all ${activeRightTab === 'result' ? 'tab-active font-bold text-white border-primary' : 'text-gray-400 hover:text-gray-200'}`}
-                  onClick={() => setActiveRightTab('result')}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 mr-2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Result
-                </button>
-              </div>
-
-              {/* Drawer Content */}
-              <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                {activeRightTab === 'testcase' && (
-                  <div>
-                    {runResult ? (
-                      <div className={`p-4 rounded-xl border ${runResult.success ? 'bg-green-900/10 border-green-500/20' : 'bg-red-900/10 border-red-500/20'} mb-6`}>
-                        {runResult.success ? (
-                          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <h4 className="text-xl font-bold text-green-400 flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              Accepted
-                            </h4>
-                            <div className="flex gap-4 mt-3 text-xs bg-black/20 p-2 rounded-lg w-fit border border-white/5">
-                              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-wider">Runtime</span><span className="font-mono text-gray-200">{runResult.runtime+" sec"}</span></div>
-                              <div className="flex flex-col"><span className="text-gray-500 uppercase tracking-wider">Memory</span><span className="font-mono text-gray-200">{runResult.memory+" KB"}</span></div>
-                            </div>
-                            
-                            <div className="mt-6 space-y-3">
-                              {runResult.testCases.map((tc, i) => (
-                                <div key={i} className="bg-[#2d2d2d] border border-[#3c3c3c] p-4 rounded-lg text-sm shadow-sm">
-                                  <h5 className="font-semibold text-gray-400 mb-3 uppercase tracking-wider text-[10px]">Test Case {i + 1}</h5>
-                                  <div className="font-mono space-y-3 text-xs">
-                                    <div><strong className="text-gray-500 block mb-1">Input</strong> <div className="bg-[#1e1e1e] p-2 rounded border border-[#3c3c3c] break-all">{tc.stdin}</div></div>
-                                    <div><strong className="text-gray-500 block mb-1">Expected Output</strong> <div className="bg-[#1e1e1e] p-2 rounded border border-[#3c3c3c] break-all">{tc.expected_output}</div></div>
-                                    <div><strong className="text-gray-500 block mb-1">Your Output</strong> <div className="bg-[#1e1e1e] p-2 rounded border border-[#3c3c3c] break-all">{tc.stdout}</div></div>
-                                  </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col bg-[#161616] rounded-xl border border-white/10 overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-white/10 shrink-0 px-2 bg-[#1a1a1a]" style={{ cursor: rightCollapsed ? 'pointer' : 'default' }} onClick={() => { if (rightCollapsed) { rightPanelRef.current?.expand(); setRightCollapsed(false); } }}>
+                      <div className="flex">
+                        {[
+                          { id: 'testcases', label: 'Test Cases' },
+                          { id: 'results', label: 'Results' },
+                        ].map(({ id, label }) => (
+                          <button key={id} onClick={(e) => { e.stopPropagation(); setActiveRightTab(id); rightPanelRef.current?.expand(); setRightCollapsed(false); }} className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${activeRightTab === id && !rightCollapsed ? 'text-white border-white' : 'text-slate-400 border-transparent hover:text-white'}`}>
+                            {id === 'results' && (runState === 'running' || submitState === 'running') ? (
+                              <span className="flex items-center gap-1">{label} <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" /></span>
+                            ) : label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center pr-2">
+                        <button onClick={(e) => { e.stopPropagation(); rightPanelRef.current?.resize(6); setRightCollapsed(true); }} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+                          <ChevronDown className={`w-4 h-4 transition-transform ${rightCollapsed ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                      {activeRightTab === 'testcases' && (
+                        <div className="space-y-3">
+                          {problem.visibleTestCases?.map((tc, i) => (
+                            <div key={i} className="bg-white/5 rounded-xl p-3 flex flex-col gap-3">
+                              <p className="text-xs font-semibold text-slate-400">Case {i + 1}</p>
+                              <div className="flex flex-row gap-4">
+                                <div className="flex-1">
+                                  <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Input</strong>
+                                  <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap bg-[#1e1e1e] p-2 rounded">{tc.input}</pre>
                                 </div>
-                              ))}
+                                <div className="w-px bg-white/10" />
+                                <div className="flex-1">
+                                  <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Expected Output</strong>
+                                  <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap bg-[#1e1e1e] p-2 rounded">{tc.output}</pre>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <h4 className="text-xl font-bold text-red-400 flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                              Wrong Answer
-                            </h4>
-                            <div className="mt-6 space-y-3">
-                              {runResult.testCases.map((tc, i) => (
-                                <div key={i} className={`bg-[#2d2d2d] border ${tc.status_id==3 ? 'border-[#3c3c3c]' : 'border-red-500/30'} p-4 rounded-lg text-sm shadow-sm`}>
-                                  <div className="flex justify-between items-center mb-3">
-                                    <h5 className="font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Test Case {i + 1}</h5>
-                                    <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${tc.status_id==3 ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
-                                      {tc.status_id==3 ? 'Passed' : 'Failed'}
+                          ))}
+                        </div>
+                      )}
+                      {activeRightTab === 'results' && (
+                        <div>
+                          {runState === 'idle' && submitState === 'idle' && (
+                            <div className="text-center py-8 text-slate-500"><p className="text-xs">Run your code to see results</p></div>
+                          )}
+                          {(runState === 'running' || submitState === 'running') && (
+                            <div className="text-center py-8 text-slate-400"><span className="loading loading-spinner text-primary"></span><p className="text-xs mt-2">Executing...</p></div>
+                          )}
+                          {runResult && runState !== 'running' && (
+                            <div>
+                              <div className={`p-4 rounded-xl border mb-6 ${runResult.success ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                                <h4 className={`text-sm font-bold flex items-center gap-2 ${runResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                                  {runResult.success ? <CheckCircle className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                                  {runResult.success ? 'Accepted' : 'Wrong Answer / Error'}
+                                </h4>
+                                {runResult.success && <div className="flex gap-4 mt-2 text-[10px] text-slate-400 font-mono"><span>Runtime: {runResult.runtime}s</span><span>Mem: {runResult.memory}KB</span></div>}
+                              </div>
+                              <div className="space-y-3">
+                                {runResult.testCases?.map((tc, i) => (
+                                  <div key={i} className={`bg-[#2d2d2d] border ${tc.status_id === 3 ? 'border-white/10' : 'border-red-500/30'} p-3 rounded-lg text-sm`}>
+                                    <h5 className="font-semibold text-slate-400 text-[10px] uppercase mb-2">Case {i + 1} {tc.status_id === 3 ? <span className="text-green-400 ml-2">Pass</span> : <span className="text-red-400 ml-2">Fail</span>}</h5>
+                                    <div className="flex flex-row gap-4 font-mono text-xs">
+                                      <div className="flex-1">
+                                        <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Input</strong>
+                                        <div className="bg-[#1e1e1e] p-2 rounded whitespace-pre-wrap">{tc.stdin}</div>
+                                      </div>
+                                      <div className="w-px bg-white/10" />
+                                      <div className="flex-1">
+                                        <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Output</strong>
+                                        <div className="bg-[#1e1e1e] p-2 rounded whitespace-pre-wrap">{tc.stdout || 'N/A'}</div>
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="font-mono space-y-3 text-xs">
-                                    <div><strong className="text-gray-500 block mb-1">Input</strong> <div className="bg-[#1e1e1e] p-2 rounded border border-[#3c3c3c] break-all">{tc.stdin}</div></div>
-                                    <div><strong className="text-gray-500 block mb-1">Expected Output</strong> <div className="bg-[#1e1e1e] p-2 rounded border border-[#3c3c3c] break-all">{tc.expected_output}</div></div>
-                                    <div><strong className="text-gray-500 block mb-1">Your Output</strong> <div className="bg-[#1e1e1e] p-2 rounded border border-[#3c3c3c] break-all">{tc.stdout}</div></div>
-                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {submitResult && submitState !== 'running' && (
+                            <div className={`p-6 rounded-2xl border ${submitResult.accepted ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'} text-center`}>
+                              <h4 className={`text-xl font-black mb-2 ${submitResult.accepted ? 'text-green-400' : 'text-red-400'}`}>
+                                {submitResult.accepted ? 'Accepted' : submitResult.error || 'Failed'}
+                              </h4>
+                              <p className="text-xs text-slate-400 mb-4 font-mono">Passed: {submitResult.passedTestCases} / {submitResult.totalTestCases}</p>
+                              {submitResult.accepted && (
+                                <div className="flex justify-center gap-4 text-xs font-mono text-slate-300">
+                                  <span>Runtime: {submitResult.runtime}s</span>
+                                  <span>Mem: {submitResult.memory}KB</span>
                                 </div>
-                              ))}
+                              )}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2 opacity-50 py-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-16 h-16">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                        <p className="text-sm">Run your code to see console output here.</p>
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
 
-                {activeRightTab === 'result' && (
-                  <div>
-                    {submitResult ? (
-                      <div className={`p-6 rounded-2xl border shadow-lg ${submitResult.accepted ? 'bg-gradient-to-br from-green-900/20 to-[#1e1e1e] border-green-500/30' : 'bg-gradient-to-br from-red-900/20 to-[#1e1e1e] border-red-500/30'}`}>
-                        {submitResult.accepted ? (
-                          <div className="animate-in zoom-in-95 duration-500 flex flex-col items-center text-center">
-                            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4 border border-green-500/30">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-10 h-10 text-green-400">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                            <h4 className="font-black text-2xl text-green-400 mb-1 tracking-tight">Accepted</h4>
-                            <p className="text-gray-400 mb-6 text-sm">Your solution successfully passed all tests!</p>
-                            
-                            <div className="grid grid-cols-3 gap-3 w-full">
-                              <div className="bg-black/30 p-3 rounded-lg border border-white/5 flex flex-col items-center">
-                                <span className="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Test Cases</span>
-                                <span className="text-lg font-mono text-white">{submitResult.passedTestCases}<span className="text-gray-500 text-xs">/{submitResult.totalTestCases}</span></span>
-                              </div>
-                              <div className="bg-black/30 p-3 rounded-lg border border-white/5 flex flex-col items-center">
-                                <span className="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Runtime</span>
-                                <span className="text-lg font-mono text-white">{submitResult.runtime}<span className="text-gray-500 text-xs ml-1">s</span></span>
-                              </div>
-                              <div className="bg-black/30 p-3 rounded-lg border border-white/5 flex flex-col items-center">
-                                <span className="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Memory</span>
-                                <span className="text-lg font-mono text-white">{submitResult.memory}<span className="text-gray-500 text-xs ml-1">KB</span></span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="animate-in zoom-in-95 duration-500 flex flex-col items-center text-center">
-                             <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4 border border-red-500/30">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-10 h-10 text-red-400">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                            <h4 className="font-black text-xl text-red-400 mb-1">{submitResult.error}</h4>
-                            <p className="text-gray-400 mb-6 text-sm">Your solution failed on some hidden test cases.</p>
-                            
-                            <div className="bg-black/30 p-4 rounded-lg border border-white/5 w-full">
-                              <div className="flex justify-between items-center mb-2 text-sm">
-                                <span className="text-gray-400 font-medium">Test Cases Passed</span>
-                                <span className="font-mono text-white font-bold">{submitResult.passedTestCases} / {submitResult.totalTestCases}</span>
-                              </div>
-                              <div className="w-full bg-gray-800 rounded-full h-2 mt-3 overflow-hidden">
-                                <div className="bg-red-500 h-2 rounded-full" style={{ width: `${(submitResult.passedTestCases / submitResult.totalTestCases) * 100}%` }}></div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+          {/* AI Panel */}
+          {aiOpen && (
+            <>
+              <ResizableHandle className="w-[4px] bg-transparent hover:bg-white/20 transition-colors cursor-col-resize" />
+              <ResizablePanel
+                ref={aiPanelRef}
+                defaultSize={25}
+                minSize={20}
+                collapsible={true}
+                collapsedSize={4}
+                onCollapse={() => setAiCollapsed(true)}
+                onExpand={() => setAiCollapsed(false)}
+                className="flex flex-col relative"
+              >
+                {aiCollapsed ? (
+                  <div className="w-full h-full flex flex-col items-center py-4 bg-[#161616] rounded-xl border border-purple-500/20 cursor-pointer hover:bg-[#1f1f1f] transition-colors overflow-hidden" onClick={() => { aiPanelRef.current?.resize(30); setAiCollapsed(false); }}>
+                    <button className="mb-6 p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors shrink-0">
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex flex-col items-center gap-6 mt-4">
+                      <span
+                        className="text-[10px] font-medium text-purple-400 tracking-widest uppercase"
+                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
+                      >
+                        AI ASSISTANT
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col bg-[#161616] rounded-xl border border-purple-500/30 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 shrink-0 bg-[#1a1a1a]">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-xs font-semibold text-white">AI Assistant</span>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2 opacity-50 py-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-16 h-16">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-                        </svg>
-                        <p className="text-sm">Submit your code to see final evaluation results here.</p>
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); aiPanelRef.current?.collapse(); setAiCollapsed(true); }} className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10 transition-colors">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setAiOpen(false)} className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10 transition-colors"><X className="w-3.5 h-3.5" /></button>
                       </div>
-                    )}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <ChatAi problem={problem} />
+                    </div>
                   </div>
                 )}
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+              </ResizablePanel>
+            </>
+          )}
+
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
-};
+}
 
-export default ProblemPage;
+
