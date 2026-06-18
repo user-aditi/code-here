@@ -9,15 +9,6 @@ import { logoutUser } from "../../authSlice";
 
 const navItems = [
   { id: "problems", label: "Problems", icon: Code2 },
-  { id: "students", label: "Students", icon: Users },
-  { id: "sheets", label: "Sheets", icon: BookOpen },
-  { id: "quizzes", label: "Quizzes", icon: ClipboardList },
-  { id: "exams", label: "Exams", icon: FileText },
-  { id: "contests", label: "Contests", icon: Trophy },
-  { id: "leaderboards", label: "Leaderboards", icon: BarChart3 },
-  { id: "analytics", label: "Analytics", icon: Activity },
-  { id: "announcements", label: "Announcements", icon: Megaphone },
-  { id: "ai-monitoring", label: "AI Monitoring", icon: Bot },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

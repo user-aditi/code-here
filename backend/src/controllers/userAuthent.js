@@ -46,16 +46,19 @@ const login = async (req,res)=>{
         const {emailId, password} = req.body;
 
         if(!emailId)
-            throw new Error("Invalid Credentials");
+            return res.status(401).send("Invalid Credentials");
         if(!password)
-            throw new Error("Invalid Credentials");
+            return res.status(401).send("Invalid Credentials");
 
         const user = await User.findOne({emailId});
+
+        if(!user)
+            return res.status(401).send("User Id does not exist");
 
         const match = await bcrypt.compare(password,user.password);
 
         if(!match)
-            throw new Error("Invalid Credentials");
+            return res.status(401).send("Password is incorrect");
 
         const reply = {
             firstName: user.firstName,

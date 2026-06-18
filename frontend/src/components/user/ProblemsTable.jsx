@@ -36,13 +36,12 @@ function ProblemsTable({ sidebarFilter }) {
   useEffect(() => {
     if (sidebarFilter === "solved") setStatus("Solved");
     else if (sidebarFilter === "unsolved") setStatus("Unsolved");
-    else if (sidebarFilter === "attempted") setStatus("Attempted");
     else setStatus("All");
   }, [sidebarFilter]);
 
   useEffect(() => {
     fetchProblems();
-  }, [search, difficulty, status, selectedTopics, sortBy, sidebarFilter, user?.bookmarkedProblems?.length]);
+  }, [search, difficulty, status, selectedTopics, sortBy, sidebarFilter]);
 
   const fetchProblems = async () => {
     try {
@@ -116,7 +115,7 @@ function ProblemsTable({ sidebarFilter }) {
         </div>
         {[
           { label: "Difficulty", opts: ["All", "Easy", "Medium", "Hard"], val: difficulty, set: setDifficulty },
-          { label: "Status", opts: ["All", "Solved", "Unsolved", "Attempted"], val: status, set: setStatus },
+          { label: "Status", opts: ["All", "Solved", "Unsolved"], val: status, set: setStatus },
           { label: "Sort By", opts: ["Popularity", "Acceptance", "Difficulty", "Newest"], val: sortBy, set: setSortBy },
         ].map(({ label, opts, val, set }) => (
           <div key={label} className="relative">

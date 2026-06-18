@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { ArrowLeft, Code2, PanelLeft, Play, Upload, Sparkles, Timer, Flame, ChevronDown, User, Settings, LogOut, CheckCircle, Clock, X, Lightbulb, ChevronRight, ChevronLeft, ChevronUp, TerminalSquare, Plus, Video, RotateCcw, RefreshCw, Send, Search, List, FileText, BookOpen, CheckSquare } from 'lucide-react';
 import { useDispatch, useSelector } from "react-redux";
-import { logoutUser } from "../authSlice";
+import { logoutUser, addProblemSolved } from "../authSlice";
 import axiosClient from "../utils/axiosClient";
 import SubmissionHistory from "../components/SubmissionHistory";
 import ChatAi from '../components/ChatAi';
@@ -118,7 +118,8 @@ export default function ProblemPage() {
 
   const handleRun = async () => {
     setRunState("running");
-    setActiveRightTab("results");
+    setActiveLeftTab("results");
+    if (leftCollapsed) { leftPanelRef.current?.resize(45); setLeftCollapsed(false); }
     setRunResult(null);
     try {
       const response = await axiosClient.post(`/submission/run/${problemId}`, { code, language: selectedLanguage });
@@ -133,12 +134,16 @@ export default function ProblemPage() {
 
   const handleSubmitCode = async () => {
     setSubmitState("running");
-    setActiveRightTab("results");
+    setActiveLeftTab("results");
+    if (leftCollapsed) { leftPanelRef.current?.resize(45); setLeftCollapsed(false); }
     setSubmitResult(null);
     try {
       const response = await axiosClient.post(`/submission/submit/${problemId}`, { code, language: selectedLanguage });
       setSubmitResult(response.data);
       setSubmitState("passed");
+      if (response.data.accepted) {
+        dispatch(addProblemSolved(problemId));
+      }
     } catch (error) {
       console.error('Error submitting code:', error);
       setSubmitResult({ accepted: false, error: 'Internal server error' });
@@ -327,7 +332,8 @@ export default function ProblemPage() {
                     { id: 'description', label: 'Description', icon: FileText },
                     { id: 'editorial', label: 'Editorial', icon: BookOpen },
                     { id: 'solutions', label: 'Solutions', icon: Lightbulb },
-                    { id: 'submissions', label: 'Submissions', icon: Clock }
+                    { id: 'submissions', label: 'Submissions', icon: Clock },
+                    { id: 'results', label: 'Results', icon: TerminalSquare }
                   ].map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
@@ -352,10 +358,13 @@ export default function ProblemPage() {
                     { id: 'description', label: 'Description' },
                     { id: 'editorial', label: 'Editorial' },
                     { id: 'solutions', label: 'Solutions' },
-                    { id: 'submissions', label: 'Submissions' }
+                    { id: 'submissions', label: 'Submissions' },
+                    { id: 'results', label: 'Results' }
                   ].map(({ id, label }) => (
                     <button key={id} onClick={() => setActiveLeftTab(id)} className={`shrink-0 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${activeLeftTab === id ? 'text-white border-white' : 'text-slate-400 border-transparent hover:text-white'}`}>
-                      {label}
+                      {id === 'results' && (runState === 'running' || submitState === 'running') ? (
+                        <span className="flex items-center gap-1">{label} <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" /></span>
+                      ) : label}
                     </button>
                   ))}
                   <div className="ml-auto flex items-center pr-1 shrink-0">
@@ -418,6 +427,59 @@ export default function ProblemPage() {
                   )}
                   {activeLeftTab === 'submissions' && (
                     <SubmissionHistory problemId={problemId} />
+                  )}
+                  {activeLeftTab === 'results' && (
+                    <div>
+                      {runState === 'idle' && submitState === 'idle' && (
+                        <div className="text-center py-8 text-slate-500"><p className="text-xs">Run your code to see results</p></div>
+                      )}
+                      {(runState === 'running' || submitState === 'running') && (
+                        <div className="text-center py-8 text-slate-400"><span className="loading loading-spinner text-primary"></span><p className="text-xs mt-2">Executing...</p></div>
+                      )}
+                      {runResult && runState !== 'running' && (
+                        <div>
+                          <div className={`p-4 rounded-xl border mb-6 ${runResult.success ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                            <h4 className={`text-sm font-bold flex items-center gap-2 ${runResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                              {runResult.success ? <CheckCircle className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                              {runResult.success ? 'Accepted' : 'Wrong Answer / Error'}
+                            </h4>
+                            {runResult.success && <div className="flex gap-4 mt-2 text-[10px] text-slate-400 font-mono"><span>Runtime: {runResult.runtime}s</span><span>Mem: {runResult.memory}KB</span></div>}
+                          </div>
+                          <div className="space-y-3">
+                            {runResult.testCases?.map((tc, i) => (
+                              <div key={i} className={`bg-[#2d2d2d] border ${tc.status_id === 3 ? 'border-white/10' : 'border-red-500/30'} p-3 rounded-lg text-sm`}>
+                                <h5 className="font-semibold text-slate-400 text-[10px] uppercase mb-2">Case {i + 1} {tc.status_id === 3 ? <span className="text-green-400 ml-2">Pass</span> : <span className="text-red-400 ml-2">Fail</span>}</h5>
+                                <div className="flex flex-row gap-4 font-mono text-xs">
+                                  <div className="flex-1">
+                                    <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Input</strong>
+                                    <div className="bg-[#1e1e1e] p-2 rounded whitespace-pre-wrap">{tc.stdin}</div>
+                                  </div>
+                                  <div className="w-px bg-white/10" />
+                                  <div className="flex-1">
+                                    <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Output</strong>
+                                    <div className="bg-[#1e1e1e] p-2 rounded whitespace-pre-wrap">{tc.stdout || 'N/A'}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {submitResult && submitState !== 'running' && (
+                        <div className={`p-6 rounded-2xl border ${submitResult.accepted ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'} text-center`}>
+                          <h4 className={`text-xl font-black mb-2 ${submitResult.accepted ? 'text-green-400' : 'text-red-400'}`}>
+                            {submitResult.accepted ? 'Accepted' : submitResult.error || 'Failed'}
+                          </h4>
+                          <p className="text-xs text-slate-400 mb-4 font-mono">Passed: {submitResult.passedTestCases} / {submitResult.totalTestCases}</p>
+                          {submitResult.accepted && (
+                            <div className="flex justify-center gap-4 text-xs font-mono text-slate-300">
+                              <span>Runtime: {submitResult.runtime}s</span>
+                              <span>Mem: {submitResult.memory}KB</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -499,10 +561,6 @@ export default function ProblemPage() {
                         <CheckSquare className="w-3.5 h-3.5 text-green-500" />
                         <span className="text-xs font-semibold">Testcase</span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-slate-500 hover:text-white transition-colors">
-                        <TerminalSquare className="w-3.5 h-3.5" />
-                        <span className="text-xs font-semibold">Test Result</span>
-                      </div>
                     </div>
                     <button className="p-1.5 ml-auto hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
                       <ChevronUp className="w-5 h-5" />
@@ -513,13 +571,10 @@ export default function ProblemPage() {
                     <div className="flex items-center justify-between border-b border-white/10 shrink-0 px-2 bg-[#1a1a1a]" style={{ cursor: rightCollapsed ? 'pointer' : 'default' }} onClick={() => { if (rightCollapsed) { rightPanelRef.current?.expand(); setRightCollapsed(false); } }}>
                       <div className="flex">
                         {[
-                          { id: 'testcases', label: 'Test Cases' },
-                          { id: 'results', label: 'Results' },
+                          { id: 'testcases', label: 'Test Cases' }
                         ].map(({ id, label }) => (
                           <button key={id} onClick={(e) => { e.stopPropagation(); setActiveRightTab(id); rightPanelRef.current?.expand(); setRightCollapsed(false); }} className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${activeRightTab === id && !rightCollapsed ? 'text-white border-white' : 'text-slate-400 border-transparent hover:text-white'}`}>
-                            {id === 'results' && (runState === 'running' || submitState === 'running') ? (
-                              <span className="flex items-center gap-1">{label} <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" /></span>
-                            ) : label}
+                            {label}
                           </button>
                         ))}
                       </div>
@@ -548,59 +603,6 @@ export default function ProblemPage() {
                               </div>
                             </div>
                           ))}
-                        </div>
-                      )}
-                      {activeRightTab === 'results' && (
-                        <div>
-                          {runState === 'idle' && submitState === 'idle' && (
-                            <div className="text-center py-8 text-slate-500"><p className="text-xs">Run your code to see results</p></div>
-                          )}
-                          {(runState === 'running' || submitState === 'running') && (
-                            <div className="text-center py-8 text-slate-400"><span className="loading loading-spinner text-primary"></span><p className="text-xs mt-2">Executing...</p></div>
-                          )}
-                          {runResult && runState !== 'running' && (
-                            <div>
-                              <div className={`p-4 rounded-xl border mb-6 ${runResult.success ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                                <h4 className={`text-sm font-bold flex items-center gap-2 ${runResult.success ? 'text-green-400' : 'text-red-400'}`}>
-                                  {runResult.success ? <CheckCircle className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                                  {runResult.success ? 'Accepted' : 'Wrong Answer / Error'}
-                                </h4>
-                                {runResult.success && <div className="flex gap-4 mt-2 text-[10px] text-slate-400 font-mono"><span>Runtime: {runResult.runtime}s</span><span>Mem: {runResult.memory}KB</span></div>}
-                              </div>
-                              <div className="space-y-3">
-                                {runResult.testCases?.map((tc, i) => (
-                                  <div key={i} className={`bg-[#2d2d2d] border ${tc.status_id === 3 ? 'border-white/10' : 'border-red-500/30'} p-3 rounded-lg text-sm`}>
-                                    <h5 className="font-semibold text-slate-400 text-[10px] uppercase mb-2">Case {i + 1} {tc.status_id === 3 ? <span className="text-green-400 ml-2">Pass</span> : <span className="text-red-400 ml-2">Fail</span>}</h5>
-                                    <div className="flex flex-row gap-4 font-mono text-xs">
-                                      <div className="flex-1">
-                                        <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Input</strong>
-                                        <div className="bg-[#1e1e1e] p-2 rounded whitespace-pre-wrap">{tc.stdin}</div>
-                                      </div>
-                                      <div className="w-px bg-white/10" />
-                                      <div className="flex-1">
-                                        <strong className="text-slate-500 block mb-1 text-[10px] uppercase">Output</strong>
-                                        <div className="bg-[#1e1e1e] p-2 rounded whitespace-pre-wrap">{tc.stdout || 'N/A'}</div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {submitResult && submitState !== 'running' && (
-                            <div className={`p-6 rounded-2xl border ${submitResult.accepted ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'} text-center`}>
-                              <h4 className={`text-xl font-black mb-2 ${submitResult.accepted ? 'text-green-400' : 'text-red-400'}`}>
-                                {submitResult.accepted ? 'Accepted' : submitResult.error || 'Failed'}
-                              </h4>
-                              <p className="text-xs text-slate-400 mb-4 font-mono">Passed: {submitResult.passedTestCases} / {submitResult.totalTestCases}</p>
-                              {submitResult.accepted && (
-                                <div className="flex justify-center gap-4 text-xs font-mono text-slate-300">
-                                  <span>Runtime: {submitResult.runtime}s</span>
-                                  <span>Mem: {submitResult.memory}KB</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>

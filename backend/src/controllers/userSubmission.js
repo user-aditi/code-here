@@ -94,9 +94,19 @@ const submitCode = async (req,res)=>{
     
     // req.result == user Information
 
-    if(req.result.role !== 'admin' && !req.result.problemSolved.includes(problemId)){
+    if(status === 'accepted' && req.result.role !== 'admin' && !req.result.problemSolved.includes(problemId)){
       req.result.problemSolved.push(problemId);
       await req.result.save();
+    }
+
+    // Update Problem Acceptance Rate
+    if (req.result.role !== 'admin') {
+      problem.totalSubmissions = (problem.totalSubmissions || 0) + 1;
+      if (status === 'accepted') {
+        problem.acceptedSubmissions = (problem.acceptedSubmissions || 0) + 1;
+      }
+      problem.acceptanceRate = Math.round((problem.acceptedSubmissions / problem.totalSubmissions) * 100) || 0;
+      await problem.save();
     }
     
     const accepted = (status == 'accepted')

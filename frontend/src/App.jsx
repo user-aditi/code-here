@@ -4,7 +4,7 @@ import Signup from "./pages/Signup";
 import Homepage from "./pages/Homepage";
 import { useDispatch, useSelector } from 'react-redux';
 import { checkAuth } from "./authSlice";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import AdminPanel from "./components/AdminPanel";
 import UpdateProblem from './pages/UpdateProblem.jsx';
 import UpdateProblemList from './pages/UpdateProblemList.jsx';
@@ -22,14 +22,15 @@ import SettingsPage from "./pages/user/Settings";
 function App(){
   
   const dispatch = useDispatch();
-  const {isAuthenticated,user,loading} = useSelector((state)=>state.auth);
+  const {isAuthenticated,user} = useSelector((state)=>state.auth);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // check initial authentication
   useEffect(() => {
-    dispatch(checkAuth());
+    dispatch(checkAuth()).finally(() => setIsInitializing(false));
   }, [dispatch]);
   
-  if (loading) {
+  if (isInitializing) {
     return <div className="min-h-screen flex items-center justify-center">
       <span className="loading loading-spinner loading-lg text-primary"></span>
     </div>;

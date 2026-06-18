@@ -3,6 +3,8 @@ import { Search, Bell, ChevronDown, User, Settings, LogOut, Code2, Flame, FileCo
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutUser } from "../../authSlice";
+import axiosClient from "../../utils/axiosClient";
+import { useEffect } from "react";
 
 function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -10,6 +12,20 @@ function Navbar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [streak, setStreak] = useState(user?.streak || 0);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await axiosClient.get('/dashboard/stats');
+        setStreak(res.data.streak);
+      } catch (err) {
+        console.error("Failed to fetch stats", err);
+      }
+    };
+    if (user) fetchStats();
+  }, [user, user?.problemSolved?.length]);
 
   const currentPage = location.pathname.split('/')[1] || 'problems';
 
@@ -27,44 +43,39 @@ function Navbar() {
         <span className="font-bold text-sm hidden sm:block tracking-tight text-base-content">Code-Here</span>
       </Link>
 
-      <div className="flex-1 max-w-md mx-auto">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/50" />
-          <input
-            className="w-full bg-base-200 border border-base-300 rounded-xl pl-9 pr-4 py-2 text-sm placeholder:text-base-content/50 focus:outline-none focus:border-primary/60 transition-colors"
-            placeholder="Search problems, topics..."
-          />
-        </div>
-      </div>
+      <div className="flex-1"></div>
 
-      <div className="hidden lg:flex items-center gap-0.5">
-        {[
-          { id: "", label: "Problems" },
-          { id: "myschool", label: "My School" },
-          { id: "contests", label: "Contests" },
-          { id: "leaderboard", label: "Leaderboard" }
-        ].map((p) => (
-          <Link
-            key={p.id}
-            to={`/${p.id}`}
-            className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-              (currentPage === p.id || (p.id === "" && currentPage === "problems")) ? "bg-primary/10 text-primary" : "text-base-content/70 hover:text-base-content hover:bg-base-200"
-            }`}
-          >
-            {p.label}
-          </Link>
-        ))}
-      </div>
+
 
       <div className="flex items-center gap-2 ml-auto">
         <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
           <Flame className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-sm font-bold text-amber-400">{user?.streak || 0}</span>
+          <span className="text-sm font-bold text-amber-400">{streak}</span>
         </div>
-        <button className="relative p-2 rounded-xl text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-base-100" />
-        </button>
+        <div className="relative">
+          <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2 rounded-xl text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-base-100" />
+          </button>
+          {notifOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 w-80 bg-[#161B22] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                  <h3 className="font-bold text-base-content">Notifications</h3>
+                  <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">0 New</span>
+                </div>
+                <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-base-300/50 flex items-center justify-center text-base-content/30 mb-2 border border-white/5 shadow-inner">
+                    <Bell className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-semibold text-base-content/80">You're all caught up!</p>
+                  <p className="text-xs text-base-content/50">No new notifications as of now.</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <div className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}

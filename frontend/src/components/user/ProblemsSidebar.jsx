@@ -24,7 +24,6 @@ function ProblemsSidebar({ activeFilter, setActiveFilter }) {
         { icon: Star, label: "Bookmarked", count: user?.bookmarkedProblems?.length || 0, id: "fav" },
         { icon: CheckCircle, label: "Solved", count: user?.problemSolved?.length || 0, id: "solved" },
         { icon: Circle, label: "Unsolved", count: totalProblems ? Math.max(0, totalProblems - (user?.problemSolved?.length || 0)) : "—", id: "unsolved" },
-        { icon: Clock, label: "Attempted", count: user?.problemSolved?.length || 0, id: "attempted" },
       ].map(({ icon: Icon, label, count, id }) => (
         <button
           key={id}

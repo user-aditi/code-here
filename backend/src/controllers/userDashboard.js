@@ -1,5 +1,8 @@
 const Submission = require('../models/submission');
 
+const User = require('../models/user');
+const Problem = require('../models/problem');
+
 const getDashboardStats = async (req, res) => {
   try {
     const userId = req.result._id;
@@ -7,15 +10,16 @@ const getDashboardStats = async (req, res) => {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const submissions = await Submission.find({
+    const allSubmissions = await Submission.find({
       userId,
       createdAt: { $gte: oneYearAgo }
     }).sort({ createdAt: -1 });
 
+    const acceptedSubmissions = allSubmissions.filter(s => s.status === 'accepted');
+
     // Calculate Streak
     let streak = 0;
-    let lastDate = null;
-    const uniqueDates = [...new Set(submissions.map(sub => new Date(sub.createdAt).toDateString()))];
+    const uniqueDates = [...new Set(acceptedSubmissions.map(sub => new Date(sub.createdAt).toDateString()))];
     
     const today = new Date().toDateString();
     const yesterday = new Date();
@@ -40,7 +44,7 @@ const getDashboardStats = async (req, res) => {
 
     // Heatmap Calculation
     const heatmapMap = {};
-    submissions.forEach(sub => {
+    allSubmissions.forEach(sub => {
         const d = new Date(sub.createdAt).toISOString().split('T')[0];
         heatmapMap[d] = (heatmapMap[d] || 0) + 1;
     });
@@ -51,7 +55,29 @@ const getDashboardStats = async (req, res) => {
         count: heatmapMap[date]
     }));
 
-    res.status(200).json({ streak, heatmap });
+    // Problem stats by difficulty
+    const user = await User.findById(userId);
+    const solvedIds = user?.problemSolved?.map(id => id.toString()) || [];
+    
+    const allProbs = await Problem.find({}, '_id difficulty');
+    const totalStats = {
+      all: allProbs.length,
+      easy: 0, medium: 0, hard: 0
+    };
+    const solvedStats = {
+      all: solvedIds.length,
+      easy: 0, medium: 0, hard: 0
+    };
+
+    allProbs.forEach(p => {
+      const diff = p.difficulty || 'medium';
+      if (totalStats[diff] !== undefined) totalStats[diff]++;
+      if (solvedIds.includes(p._id.toString()) && solvedStats[diff] !== undefined) {
+        solvedStats[diff]++;
+      }
+    });
+
+    res.status(200).json({ streak, heatmap, totalStats, solvedStats });
 
   } catch (err) {
     console.error(err);
@@ -59,7 +85,7 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-const User = require('../models/user');
+
 
 const toggleBookmark = async (req, res) => {
   try {

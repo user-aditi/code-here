@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
-import { registerUser } from '../authSlice';
+import { registerUser, clearError } from '../authSlice';
 import { Eye, EyeOff, Code2, Loader2, ArrowRight } from 'lucide-react';
 
 const signupSchema = z.object({
@@ -30,6 +30,12 @@ function Signup() {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   const onSubmit = (data) => {
     dispatch(registerUser(data));

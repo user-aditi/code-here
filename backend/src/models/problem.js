@@ -37,6 +37,14 @@ const problemSchema = new Schema({
         type: Number,
         default: 0
     },
+    totalSubmissions: {
+        type: Number,
+        default: 0
+    },
+    acceptedSubmissions: {
+        type: Number,
+        default: 0
+    },
     visibleTestCases:[
         {
             input:{
