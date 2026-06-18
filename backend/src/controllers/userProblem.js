@@ -33,12 +33,18 @@ const createProblem = async (req,res)=>{
         //     expected_output: testcase.output
         // }));
 
+        const langStartCode = startCode.find(s => s.language === language);
+        let finalCode = completeCode;
+        if (langStartCode && langStartCode.driverCode && langStartCode.driverCode.includes('__USER_CODE__')) {
+            finalCode = langStartCode.driverCode.replace('__USER_CODE__', completeCode);
+        }
+
         // Combine both visible and hidden test cases into one array
         const allTestCases = [...visibleTestCases, ...hiddenTestCases];
 
         // Now, map over the combined array
         const submissions = allTestCases.map((testcase) => ({
-            source_code: completeCode,
+            source_code: finalCode,
             language_id: languageId,
             stdin: testcase.input,
             expected_output: testcase.output
@@ -59,7 +65,7 @@ const createProblem = async (req,res)=>{
 
        for(const test of testResult){
         if(test.status_id!=3){
-         return res.status(400).send("Error Occured");
+         return res.status(400).json({ message: "Validation Error: Reference solution failed test cases.", details: test });
         }
        }
 
@@ -114,9 +120,18 @@ const updateProblem = async (req,res)=>{
 
       const languageId = getLanguageById(language);
         
+      const langStartCode = startCode.find(s => s.language === language);
+      let finalCode = completeCode;
+      if (langStartCode && langStartCode.driverCode && langStartCode.driverCode.includes('__USER_CODE__')) {
+          finalCode = langStartCode.driverCode.replace('__USER_CODE__', completeCode);
+      }
+
+      // Combine both visible and hidden test cases into one array
+      const allTestCases = [...visibleTestCases, ...hiddenTestCases];
+
       // I am creating Batch submission
-      const submissions = visibleTestCases.map((testcase)=>({
-          source_code:completeCode,
+      const submissions = allTestCases.map((testcase)=>({
+          source_code: finalCode,
           language_id: languageId,
           stdin: testcase.input,
           expected_output: testcase.output
@@ -136,7 +151,8 @@ const updateProblem = async (req,res)=>{
 
      for(const test of testResult){
       if(test.status_id!=3){
-       return res.status(400).send("Error Occured");
+       const reason = test.compile_output || test.stderr || test.message || (test.expected_output ? "Expected: " + test.expected_output + ", Got: " + test.stdout : "Unknown Error");
+       return res.status(400).json({ message: "Validation Error: Reference solution failed. Status: " + test.status_id + ". Details: " + reason, details: test });
       }
      }
 

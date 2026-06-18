@@ -19,6 +19,7 @@ authRouter.get('/check',userMiddleware,(req,res)=>{
         _id:req.result._id,
         role:req.result.role,
         problemSolved: req.result.problemSolved,
+        bookmarkedProblems: req.result.bookmarkedProblems,
     }
 
     res.status(200).json({

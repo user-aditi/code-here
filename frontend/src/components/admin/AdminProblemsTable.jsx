@@ -126,9 +126,17 @@ function AdminProblemsTable() {
                     </span>
                   </td>
                   <td className="px-4 py-4 hidden md:table-cell">
-                    <span className="text-xs text-base-content/60 capitalize bg-base-200 px-2 py-1 rounded-md border border-base-300">
-                      {p.tags || "None"}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {Array.isArray(p.tags) ? p.tags.map(tag => (
+                        <span key={tag} className="text-xs text-base-content/60 capitalize bg-base-200 px-2 py-1 rounded-md border border-base-300">
+                          {tag}
+                        </span>
+                      )) : (
+                        <span className="text-xs text-base-content/60 capitalize bg-base-200 px-2 py-1 rounded-md border border-base-300">
+                          {p.tags || "None"}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 transition-opacity">

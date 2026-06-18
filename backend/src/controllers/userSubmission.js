@@ -40,8 +40,14 @@ const submitCode = async (req,res)=>{
     
     const languageId = getLanguageById(language);
    
+    let finalCode = code;
+    const problemStartCode = problem.startCode.find(s => s.language.toLowerCase() === language.toLowerCase() || s.language === language);
+    if (problemStartCode && problemStartCode.driverCode && problemStartCode.driverCode.includes('__USER_CODE__')) {
+        finalCode = problemStartCode.driverCode.replace('__USER_CODE__', code);
+    }
+
     const submissions = problem.hiddenTestCases.map((testcase)=>({
-        source_code:code,
+        source_code: finalCode,
         language_id: languageId,
         stdin: testcase.input,
         expected_output: testcase.output
@@ -147,8 +153,14 @@ const runCode = async(req,res)=>{
 
    const languageId = getLanguageById(language);
 
+   let finalCode = code;
+   const problemStartCode = problem.startCode.find(s => s.language.toLowerCase() === language.toLowerCase() || s.language === language);
+   if (problemStartCode && problemStartCode.driverCode && problemStartCode.driverCode.includes('__USER_CODE__')) {
+       finalCode = problemStartCode.driverCode.replace('__USER_CODE__', code);
+   }
+
    const submissions = problem.visibleTestCases.map((testcase)=>({
-       source_code:code,
+       source_code: finalCode,
        language_id: languageId,
        stdin: testcase.input,
        expected_output: testcase.output

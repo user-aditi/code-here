@@ -10,7 +10,7 @@ const problemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
-  tags: z.enum(['array', 'linkedList', 'graph', 'dp']),
+  tags: z.array(z.string()).min(1, 'At least one tag is required'),
   visibleTestCases: z.array(
     z.object({
       input: z.string().min(1, 'Input is required'),
@@ -27,7 +27,8 @@ const problemSchema = z.object({
   startCode: z.array(
     z.object({
       language: z.enum(['C++', 'Java', 'JavaScript']),
-      initialCode: z.string().min(1, 'Initial code is required')
+      initialCode: z.string().min(1, 'Initial code is required'),
+      driverCode: z.string().optional()
     })
   ).length(3, 'All three languages required'),
   referenceSolution: z.array(
@@ -46,14 +47,15 @@ function AdminPanel() {
     handleSubmit,
     watch,
     trigger,
-    formState: { errors }
+    formState: { errors, isSubmitting, isDirty }
   } = useForm({
     resolver: zodResolver(problemSchema),
     defaultValues: {
+      tags: [],
       startCode: [
-        { language: 'C++', initialCode: '' },
-        { language: 'Java', initialCode: '' },
-        { language: 'JavaScript', initialCode: '' }
+        { language: 'C++', initialCode: '', driverCode: '' },
+        { language: 'Java', initialCode: '', driverCode: '' },
+        { language: 'JavaScript', initialCode: '', driverCode: '' }
       ],
       referenceSolution: [
         { language: 'C++', completeCode: '' },
@@ -69,16 +71,16 @@ function AdminPanel() {
       alert('Problem created successfully!');
       navigate('/admin');
     } catch (error) {
-      alert(`Error: ${error.response?.data?.message || error.message}`);
+      if (error.response?.data?.details) {
+        alert(`Error: ${error.response.data.message}\nDetails: ${error.response.data.details.stderr || error.response.data.details.compile_output || "Wrong Answer"}`);
+      } else {
+        alert(`Error: ${error.response?.data?.message || error.response?.data || error.message}`);
+      }
     }
   };
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-white">Create New Problem</h1>
-        <p className="text-base-content/60">Fill out the details below to add a new challenge to the platform.</p>
-      </div>
       
       <ProblemForm 
         handleSubmit={handleSubmit}
@@ -89,6 +91,8 @@ function AdminPanel() {
         watch={watch}
         trigger={trigger}
         isUpdating={false}
+        isSubmitting={isSubmitting}
+        isDirty={isDirty}
       />
     </div>
   );

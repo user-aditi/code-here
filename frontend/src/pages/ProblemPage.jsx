@@ -9,6 +9,8 @@ import SubmissionHistory from "../components/SubmissionHistory";
 import ChatAi from '../components/ChatAi';
 import Editorial from '../components/Editorial';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../components/ui/resizable';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 
 const langMap = {
   cpp: 'C++',
@@ -381,8 +383,10 @@ export default function ProblemPage() {
                         <DiffBadge d={problem.difficulty} />
                         {problem.acceptanceRate && <span className="text-xs text-slate-400">{problem.acceptanceRate}% acceptance</span>}
                       </div>
-                      <div className="prose prose-invert max-w-none prose-p:leading-relaxed text-slate-300 text-[13px] whitespace-pre-wrap">
-                        {problem.description}
+                      <div className="prose prose-invert max-w-none prose-p:leading-relaxed text-slate-300 text-[13px]">
+                        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                          {problem.description}
+                        </ReactMarkdown>
                       </div>
                       <div className="mt-6 space-y-4">
                         {problem.visibleTestCases?.map((ex, i) => (

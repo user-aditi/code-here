@@ -84,6 +84,10 @@ const problemSchema = new Schema({
             initialCode:{
                 type:String,
                 required:true
+            },
+            driverCode:{
+                type:String,
+                default: ""
             }
         }
     ],

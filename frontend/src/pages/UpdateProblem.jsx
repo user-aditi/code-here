@@ -8,16 +8,40 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../utils/axiosClient';
 import ProblemForm from '../components/ProblemForm'; // Import the reusable form
 
+const LANGUAGES = ['C++', 'Java', 'JavaScript'];
+
 // Zod schema matching the one in AdminPanel
 const problemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
-  tags: z.enum(['array', 'linkedList', 'graph', 'dp']),
-  visibleTestCases: z.array(z.object({ input: z.string().min(1), output: z.string().min(1), explanation: z.string().min(1) })),
-  hiddenTestCases: z.array(z.object({ input: z.string().min(1), output: z.string().min(1) })),
-  startCode: z.array(z.object({ language: z.enum(['C++', 'Java', 'JavaScript']), initialCode: z.string().min(1) })),
-  referenceSolution: z.array(z.object({ language: z.enum(['C++', 'Java', 'JavaScript']), completeCode: z.string().min(1) })),
+  tags: z.array(z.string()).min(1, 'At least one tag is required'),
+  visibleTestCases: z.array(
+    z.object({
+      input: z.string().min(1, 'Input is required'),
+      output: z.string().min(1, 'Output is required'),
+      explanation: z.string().min(1, 'Explanation is required')
+    })
+  ).min(1, 'At least one visible test case required'),
+  hiddenTestCases: z.array(
+    z.object({
+      input: z.string().min(1, 'Input is required'),
+      output: z.string().min(1, 'Output is required')
+    })
+  ).min(1, 'At least one hidden test case required'),
+  startCode: z.array(
+    z.object({
+      language: z.enum(['C++', 'Java', 'JavaScript']),
+      initialCode: z.string().min(1, 'Initial code is required'),
+      driverCode: z.string().optional()
+    })
+  ).length(3, 'All three languages required'),
+  referenceSolution: z.array(
+    z.object({
+      language: z.enum(['C++', 'Java', 'JavaScript']),
+      completeCode: z.string().min(1, 'Complete code is required')
+    })
+  ).length(3, 'All three languages required')
 });
 
 function UpdateProblem() {
@@ -30,7 +54,7 @@ function UpdateProblem() {
     reset, // Use reset to populate form
     watch,
     trigger,
-    formState: { errors },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm({
     resolver: zodResolver(problemSchema),
   });
@@ -40,8 +64,24 @@ function UpdateProblem() {
     const fetchProblem = async () => {
       try {
         const response = await axiosClient.get(`/problem/problemById/${id}`);
+        const data = response.data;
+        
+        // Align arrays to match the UI tab order (C++, Java, JavaScript)
+        const alignedStartCode = LANGUAGES.map(lang => {
+          const found = data.startCode?.find(s => s.language === lang);
+          return found || { language: lang, initialCode: '', driverCode: '' };
+        });
+        
+        const alignedReferenceSolution = LANGUAGES.map(lang => {
+          const found = data.referenceSolution?.find(s => s.language === lang);
+          return found || { language: lang, completeCode: '' };
+        });
+
+        data.startCode = alignedStartCode;
+        data.referenceSolution = alignedReferenceSolution;
+
         // Populate the form with the fetched data
-        reset(response.data);
+        reset(data);
       } catch (error) {
         alert('Failed to fetch problem data.');
         console.error(error);
@@ -74,6 +114,8 @@ function UpdateProblem() {
         watch={watch}
         trigger={trigger}
         isUpdating={true}
+        isSubmitting={isSubmitting}
+        isDirty={isDirty}
       />
     </div>
   );

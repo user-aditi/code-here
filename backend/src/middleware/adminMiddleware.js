@@ -8,7 +8,7 @@ const adminMiddleware = async (req,res,next)=>{
        
         const {token} = req.cookies;
         if(!token)
-            throw new Error("Token is not persent");
+            throw new Error("Token is not present");
 
         const payload = jwt.verify(token,process.env.JWT_KEY);
 
@@ -40,7 +40,7 @@ const adminMiddleware = async (req,res,next)=>{
         next();
     }
     catch(err){
-        res.status(401).send("Error: "+ err.message)
+        res.status(401).send(err.message)
     }
 
 }
