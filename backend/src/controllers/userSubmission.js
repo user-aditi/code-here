@@ -3,6 +3,9 @@ const Submission = require("../models/submission");
 const User = require("../models/user");
 const {getLanguageById,submitBatch,submitToken} = require("../utils/problemUtility");
 
+const toBase64 = (str) => str ? Buffer.from(str).toString('base64') : null;
+const fromBase64 = (str) => str ? Buffer.from(str, 'base64').toString('utf-8') : null;
+
 const submitCode = async (req,res)=>{
    
     // 
@@ -47,10 +50,10 @@ const submitCode = async (req,res)=>{
     }
 
     const submissions = problem.hiddenTestCases.map((testcase)=>({
-        source_code: finalCode,
+        source_code: toBase64(finalCode),
         language_id: languageId,
-        stdin: testcase.input,
-        expected_output: testcase.output
+        stdin: toBase64(testcase.input),
+        expected_output: toBase64(testcase.output)
     }));
 
     
@@ -70,6 +73,13 @@ const submitCode = async (req,res)=>{
 
 
     for(const test of testResult){
+        test.stdout = fromBase64(test.stdout);
+        test.stderr = fromBase64(test.stderr);
+        test.compile_output = fromBase64(test.compile_output);
+        test.expected_output = fromBase64(test.expected_output);
+        test.message = fromBase64(test.message);
+        test.stdin = fromBase64(test.stdin);
+
         if(test.status_id==3){
            testCasesPassed++;
            runtime = runtime+parseFloat(test.time)
@@ -77,11 +87,11 @@ const submitCode = async (req,res)=>{
         }else{
           if(test.status_id==4){
             status = 'error'
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output
           }
           else{
             status = 'wrong'
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output || test.stdout
           }
         }
     }
@@ -160,10 +170,10 @@ const runCode = async(req,res)=>{
    }
 
    const submissions = problem.visibleTestCases.map((testcase)=>({
-       source_code: finalCode,
+       source_code: toBase64(finalCode),
        language_id: languageId,
-       stdin: testcase.input,
-       expected_output: testcase.output
+       stdin: toBase64(testcase.input),
+       expected_output: toBase64(testcase.output)
    }));
 
 
@@ -180,6 +190,13 @@ const runCode = async(req,res)=>{
     let errorMessage = null;
 
     for(const test of testResult){
+        test.stdout = fromBase64(test.stdout);
+        test.stderr = fromBase64(test.stderr);
+        test.compile_output = fromBase64(test.compile_output);
+        test.expected_output = fromBase64(test.expected_output);
+        test.message = fromBase64(test.message);
+        test.stdin = fromBase64(test.stdin);
+
         if(test.status_id==3){
            testCasesPassed++;
            runtime = runtime+parseFloat(test.time)
@@ -187,11 +204,11 @@ const runCode = async(req,res)=>{
         }else{
           if(test.status_id==4){
             status = false
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output
           }
           else{
             status = false
-            errorMessage = test.stderr
+            errorMessage = test.stderr || test.compile_output || test.stdout
           }
         }
     }

@@ -15,8 +15,7 @@ import rehypeHighlight from 'rehype-highlight';
 const langMap = {
   cpp: 'C++',
   java: 'Java',
-  javascript: 'JavaScript',
-  python: 'Python'
+  javascript: 'JavaScript'
 };
 
 const getLanguageForMonaco = (lang) => {
@@ -24,7 +23,6 @@ const getLanguageForMonaco = (lang) => {
     case 'javascript': return 'javascript';
     case 'java': return 'java';
     case 'cpp': return 'cpp';
-    case 'python': return 'python';
     default: return 'javascript';
   }
 };
@@ -59,6 +57,9 @@ export default function ProblemPage() {
   const [aiCollapsed, setAiCollapsed] = useState(false);
   const [allProblems, setAllProblems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [chatMessages, setChatMessages] = useState([
+      { role: 'model', parts:[{text: "Hi! How can I help you with this problem?"}]}
+  ]);
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
   const aiPanelRef = useRef(null);
@@ -379,6 +380,7 @@ export default function ProblemPage() {
                 <div className="flex-1 overflow-y-auto p-5 text-sm custom-scrollbar">
                   {activeLeftTab === 'description' && (
                     <div>
+                      <h2 className="text-2xl font-bold text-white mb-3">{problem.title}</h2>
                       <div className="flex items-center gap-2 flex-wrap mb-4">
                         <DiffBadge d={problem.difficulty} />
                         {problem.acceptanceRate && <span className="text-xs text-slate-400">{problem.acceptanceRate}% acceptance</span>}
@@ -474,7 +476,7 @@ export default function ProblemPage() {
                           <h4 className={`text-xl font-black mb-2 ${submitResult.accepted ? 'text-green-400' : 'text-red-400'}`}>
                             {submitResult.accepted ? 'Accepted' : submitResult.error || 'Failed'}
                           </h4>
-                          <p className="text-xs text-slate-400 mb-4 font-mono">Passed: {submitResult.passedTestCases} / {submitResult.totalTestCases}</p>
+                          <p className="text-xs text-slate-400 mb-4 font-mono">Hidden Cases Passed: {submitResult.passedTestCases} / {submitResult.totalTestCases}</p>
                           {submitResult.accepted && (
                             <div className="flex justify-center gap-4 text-xs font-mono text-slate-300">
                               <span>Runtime: {submitResult.runtime}s</span>
@@ -501,7 +503,7 @@ export default function ProblemPage() {
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 shrink-0 bg-[#1a1a1a]">
                     <div className="relative">
                       <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="appearance-none bg-[#1a1a1a] border border-[#333] rounded-lg pl-3 pr-8 py-1.5 text-[13px] font-medium text-white focus:outline-none focus:border-primary/60 cursor-pointer shadow-sm hover:bg-[#222] transition-colors">
-                        {['javascript', 'java', 'cpp', 'python'].map((l) => (
+                        {['javascript', 'java', 'cpp'].map((l) => (
                           <option key={l} value={l} className="bg-[#0a0a0a] text-white py-1">{l === 'cpp' ? 'C++' : l.charAt(0).toUpperCase() + l.slice(1)}</option>
                         ))}
                       </select>
@@ -659,7 +661,7 @@ export default function ProblemPage() {
                       </div>
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <ChatAi problem={problem} />
+                      <ChatAi problem={problem} code={code} messages={chatMessages} setMessages={setChatMessages} />
                     </div>
                   </div>
                 )}

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import AdminSidebar from "../../components/layout/AdminSidebar";
 import AdminProblemsTable from "../../components/admin/AdminProblemsTable";
-import AdminStudentsTable from "../../components/admin/AdminStudentsTable";
 
 // Coming soon placeholder
 const ComingSoon = ({ title }) => (
@@ -19,7 +18,7 @@ function AdminDashboard() {
 
   const renderContent = () => {
     switch (activeSection) {
-      case "students": return <AdminStudentsTable />;
+      case "students": return <ComingSoon title="Student Management" />;
       case "problems": return <AdminProblemsTable />;
       case "analytics": return <ComingSoon title="Advanced Analytics" />;
       default: return <ComingSoon title={activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} />;

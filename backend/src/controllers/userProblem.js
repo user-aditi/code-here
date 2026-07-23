@@ -4,6 +4,9 @@ const User = require("../models/user");
 const Submission = require("../models/submission");
 const SolutionVideo = require("../models/solutionVideo")
 
+const toBase64 = (str) => str ? Buffer.from(str).toString('base64') : null;
+const fromBase64 = (str) => str ? Buffer.from(str, 'base64').toString('utf-8') : null;
+
 const createProblem = async (req,res)=>{
    
   // API request to authenticate user:
@@ -14,6 +17,10 @@ const createProblem = async (req,res)=>{
 
 
     try{
+        const existingProblem = await Problem.findOne({ title: { $regex: new RegExp(`^${title}$`, 'i') } });
+        if (existingProblem) {
+            return res.status(400).json({ message: `A problem with the title "${title}" already exists.` });
+        }
        
       for(const {language,completeCode} of referenceSolution){
          
@@ -44,10 +51,10 @@ const createProblem = async (req,res)=>{
 
         // Now, map over the combined array
         const submissions = allTestCases.map((testcase) => ({
-            source_code: finalCode,
+            source_code: toBase64(finalCode),
             language_id: languageId,
-            stdin: testcase.input,
-            expected_output: testcase.output
+            stdin: toBase64(testcase.input),
+            expected_output: toBase64(testcase.output)
         }));
 
 
@@ -64,6 +71,12 @@ const createProblem = async (req,res)=>{
        console.log(testResult);
 
        for(const test of testResult){
+        test.stdout = fromBase64(test.stdout);
+        test.stderr = fromBase64(test.stderr);
+        test.compile_output = fromBase64(test.compile_output);
+        test.expected_output = fromBase64(test.expected_output);
+        test.message = fromBase64(test.message);
+
         if(test.status_id!=3){
          return res.status(400).json({ message: "Validation Error: Reference solution failed test cases.", details: test });
         }
@@ -131,10 +144,10 @@ const updateProblem = async (req,res)=>{
 
       // I am creating Batch submission
       const submissions = allTestCases.map((testcase)=>({
-          source_code: finalCode,
+          source_code: toBase64(finalCode),
           language_id: languageId,
-          stdin: testcase.input,
-          expected_output: testcase.output
+          stdin: toBase64(testcase.input),
+          expected_output: toBase64(testcase.output)
       }));
 
 
@@ -150,6 +163,12 @@ const updateProblem = async (req,res)=>{
     //  console.log(testResult);
 
      for(const test of testResult){
+      test.stdout = fromBase64(test.stdout);
+      test.stderr = fromBase64(test.stderr);
+      test.compile_output = fromBase64(test.compile_output);
+      test.expected_output = fromBase64(test.expected_output);
+      test.message = fromBase64(test.message);
+
       if(test.status_id!=3){
        const reason = test.compile_output || test.stderr || test.message || (test.expected_output ? "Expected: " + test.expected_output + ", Got: " + test.stdout : "Unknown Error");
        return res.status(400).json({ message: "Validation Error: Reference solution failed. Status: " + test.status_id + ". Details: " + reason, details: test });

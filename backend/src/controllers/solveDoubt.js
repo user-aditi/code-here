@@ -1,27 +1,54 @@
-const { GoogleGenAI } = require("@google/genai");
+const Groq = require("groq-sdk");
 
+let currentGroqKeyIndex = 0;
+const getGroqKeys = () => {
+    if (process.env.GROQ_API_KEYS) {
+        return process.env.GROQ_API_KEYS.split(',').map(k => k.trim());
+    }
+    return [];
+};
+
+const solveDoubtWithRotation = async (formattedMessages) => {
+    const keys = getGroqKeys();
+    if (keys.length === 0) throw new Error("No Groq API keys available");
+
+    for (let attempts = 0; attempts < keys.length; attempts++) {
+        const key = keys[currentGroqKeyIndex];
+        const groq = new Groq({ apiKey: key });
+
+        try {
+            const chatCompletion = await groq.chat.completions.create({
+                messages: formattedMessages,
+                model: "llama-3.1-8b-instant",
+            });
+            return chatCompletion.choices[0]?.message?.content || "";
+        } catch (error) {
+            const status = error?.status || error?.response?.status;
+            // 429 Too Many Requests, 401 Unauthorized, 403 Forbidden
+            if (status === 429 || status === 401 || status === 403) {
+                console.warn(`[KeyRotation] Groq Key starting with ${key.substring(0, 8)}... failed (Status: ${status}). Rotating to next key.`);
+                currentGroqKeyIndex = (currentGroqKeyIndex + 1) % keys.length;
+            } else {
+                console.error(error);
+                throw error;
+            }
+        }
+    }
+    throw new Error("All Groq API keys have been exhausted or are invalid.");
+};
 
 const solveDoubt = async(req , res)=>{
-
-
     try{
-
-        const {messages,title,description,testCases,startCode} = req.body;
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
-       
-        async function main() {
-        const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: messages,
-        config: {
-        systemInstruction: `
+const {messages,title,description,testCases,userCode} = req.body;
+        
+        const systemInstruction = `
 You are an expert Data Structures and Algorithms (DSA) tutor specializing in helping users solve coding problems. Your role is strictly limited to DSA-related assistance only.
 
 ## CURRENT PROBLEM CONTEXT:
 [PROBLEM_TITLE]: ${title}
 [PROBLEM_DESCRIPTION]: ${description}
 [EXAMPLES]: ${testCases}
-[startCode]: ${startCode}
+[userCode]: ${userCode}
 
 
 ## YOUR CAPABILITIES:
@@ -81,19 +108,27 @@ You are an expert Data Structures and Algorithms (DSA) tutor specializing in hel
 - Promote best coding practices
 
 Remember: Your goal is to help users learn and understand DSA concepts through the lens of the current problem, not just to provide quick answers.
-`},
-    });
-     
-    res.status(201).json({
-        message:response.text
-    });
-    console.log(response.text);
-    }
+`;
 
-    main();
-      
+        // Convert frontend Gemini format to Groq/OpenAI format
+        const formattedMessages = messages.map(msg => ({
+            role: msg.role === 'model' ? 'assistant' : msg.role,
+            content: msg.parts[0].text
+        }));
+
+        // Prepend the system instruction
+        formattedMessages.unshift({ role: "system", content: systemInstruction });
+
+        const responseText = await solveDoubtWithRotation(formattedMessages);
+        
+        res.status(201).json({
+            message: responseText
+        });
+        console.log(responseText);
+
     }
     catch(err){
+        console.error(err);
         res.status(500).json({
             message: "Internal server error"
         });

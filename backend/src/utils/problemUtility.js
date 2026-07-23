@@ -1,114 +1,96 @@
 const axios = require('axios');
 
-
 const getLanguageById = (lang)=>{
-
     const language = {
         "c++":54,
         "java":62,
         "javascript":63,
         "python": 71
     }
-
-
     return language[lang.toLowerCase()];
 }
 
-
-const submitBatch = async (submissions)=>{
-
-
-const options = {
-  method: 'POST',
-  url: 'https://judge0-ce.p.rapidapi.com/submissions/batch',
-  params: {
-    base64_encoded: 'false'
-  },
-  headers: {
-    'x-rapidapi-key': process.env.JUDGE0_KEY,
-    'x-rapidapi-host': 'judge0-ce.p.rapidapi.com',
-    'Content-Type': 'application/json'
-  },
-  data: {
-    submissions
-  }
+let currentJudge0KeyIndex = 0;
+const getJudge0Keys = () => {
+    if (process.env.JUDGE0_KEYS) {
+        return process.env.JUDGE0_KEYS.split(',').map(k => k.trim());
+    }
+    return [process.env.JUDGE0_KEY].filter(Boolean);
 };
 
-async function fetchData() {
-	try {
-		const response = await axios.request(options);
-		return response.data;
-	} catch (error) {
-		console.error(error?.response?.data || error);
-        throw error;
-	}
+const fetchWithJudge0KeyRotation = async (options) => {
+    const keys = getJudge0Keys();
+    if (keys.length === 0) throw new Error("No Judge0 keys available");
+
+    for (let attempts = 0; attempts < keys.length; attempts++) {
+        const key = keys[currentJudge0KeyIndex];
+        options.headers['x-rapidapi-key'] = key;
+        
+        try {
+            const response = await axios.request(options);
+            return response.data;
+        } catch (error) {
+            const status = error?.response?.status;
+            // 403 (Forbidden) or 429 (Too Many Requests) or 401 (Unauthorized) indicate exhaustion or invalid key
+            if (status === 403 || status === 429 || status === 401) {
+                console.warn(`[KeyRotation] Judge0 Key starting with ${key.substring(0, 5)}... failed (Status: ${status}). Rotating to next key.`);
+                currentJudge0KeyIndex = (currentJudge0KeyIndex + 1) % keys.length;
+            } else {
+                console.error(error?.response?.data || error);
+                throw error;
+            }
+        }
+    }
+    
+    throw new Error("All Judge0 API keys have been exhausted or are invalid.");
+};
+
+const submitBatch = async (submissions)=>{
+    const options = {
+        method: 'POST',
+        url: 'https://judge0-ce.p.rapidapi.com/submissions/batch',
+        params: {
+            base64_encoded: 'true'
+        },
+        headers: {
+            'x-rapidapi-host': 'judge0-ce.p.rapidapi.com',
+            'Content-Type': 'application/json'
+        },
+        data: {
+            submissions
+        }
+    };
+
+    return await fetchWithJudge0KeyRotation(options);
 }
-
- return await fetchData();
-
-}
-
 
 const waiting = async(timer)=>{
   return new Promise(resolve => setTimeout(resolve, timer));
 }
 
-// ["db54881d-bcf5-4c7b-a2e3-d33fe7e25de7","ecc52a9b-ea80-4a00-ad50-4ab6cc3bb2a1","1b35ec3b-5776-48ef-b646-d5522bdeb2cc"]
-
 const submitToken = async(resultToken)=>{
+    const options = {
+        method: 'GET',
+        url: 'https://judge0-ce.p.rapidapi.com/submissions/batch',
+        params: {
+            tokens: resultToken.join(","),
+            base64_encoded: 'true',
+            fields: '*'
+        },
+        headers: {
+            'x-rapidapi-host': 'judge0-ce.p.rapidapi.com'
+        }
+    };
 
-const options = {
-  method: 'GET',
-  url: 'https://judge0-ce.p.rapidapi.com/submissions/batch',
-  params: {
-    tokens: resultToken.join(","),
-    base64_encoded: 'false',
-    fields: '*'
-  },
-  headers: {
-    'x-rapidapi-key': process.env.JUDGE0_KEY,
-    'x-rapidapi-host': 'judge0-ce.p.rapidapi.com'
-  }
-};
+    while(true){
+        const result =  await fetchWithJudge0KeyRotation(options);
+        const IsResultObtained =  result.submissions.every((r)=>r.status_id>2);
 
-async function fetchData() {
-	try {
-		const response = await axios.request(options);
-		return response.data;
-	} catch (error) {
-		console.error(error?.response?.data || error);
-        throw error;
-	}
+        if(IsResultObtained)
+            return result.submissions;
+
+        await waiting(1000);
+    }
 }
 
-
- while(true){
-
- const result =  await fetchData();
-
-  const IsResultObtained =  result.submissions.every((r)=>r.status_id>2);
-
-  if(IsResultObtained)
-    return result.submissions;
-
-  
-  await waiting(1000);
-}
-
-
-
-}
-
-
-module.exports = {getLanguageById,submitBatch,submitToken};
-
-
-
-
-
-
-
-
-// 
-
-
+module.exports = {getLanguageById, submitBatch, submitToken};

@@ -9,10 +9,7 @@ import rehypeHighlight from 'rehype-highlight';
 // but since we might not have 'highlight.js' package installed directly, we might need to rely on generic classes or install it.
 // We'll assume rehypeHighlight adds standard hljs classes which we can style, or we can just let it be for now.
 
-function ChatAi({problem}) {
-    const [messages, setMessages] = useState([
-        { role: 'model', parts:[{text: "Hi! How can I help you with this problem?"}]}
-    ]);
+function ChatAi({problem, code, messages, setMessages}) {
 
     const { register, handleSubmit, reset, formState: {errors} } = useForm();
     const messagesEndRef = useRef(null);
@@ -22,17 +19,19 @@ function ChatAi({problem}) {
     }, [messages]);
 
     const onSubmit = async (data) => {
+        const newUserMessage = { role: 'user', parts:[{text: data.message}] };
+        const updatedMessages = [...messages, newUserMessage];
         
-        setMessages(prev => [...prev, { role: 'user', parts:[{text: data.message}] }]);
+        setMessages(updatedMessages);
         reset();
 
         try {
             const response = await axiosClient.post("/ai/chat", {
-                messages:messages,
-                title:problem.title,
-                description:problem.description,
+                messages: updatedMessages,
+                title: problem.title,
+                description: problem.description,
                 testCases: problem.visibleTestCases,
-                startCode:problem.startCode
+                userCode: code
             });
 
             setMessages(prev => [...prev, { 
