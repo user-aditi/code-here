@@ -15,7 +15,7 @@ const validate = (data)=>{
         throw new Error("Invalid Email");
 
     if(!validator.isStrongPassword(data.password))
-        throw new Error("Week Password");
+        throw new Error("Weak password. Use 8+ characters with uppercase and lowercase letters, a number, and a special character.");
 }
 
 module.exports = validate;

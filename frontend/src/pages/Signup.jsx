@@ -10,7 +10,12 @@ import { Eye, EyeOff, Code2, Loader2, ArrowRight } from 'lucide-react';
 const signupSchema = z.object({
   firstName: z.string().min(3, "First name must be at least 3 characters"),
   emailId: z.string().email("Invalid Email address"),
-  password: z.string().min(8, "Password must be at least 8 characters")
+  password: z.string()
+    .min(8, "Use at least 8 characters.")
+    .regex(/[a-z]/, "Include at least one lowercase letter.")
+    .regex(/[A-Z]/, "Include at least one uppercase letter.")
+    .regex(/\d/, "Include at least one number.")
+    .regex(/[^A-Za-z0-9]/, "Include at least one special character.")
 });
 
 function Signup() {
@@ -97,6 +102,7 @@ function Signup() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   className={`w-full h-12 pl-4 pr-12 rounded-xl bg-base-100 border ${errors.password ? 'border-error focus:ring-error/20' : 'border-base-content/10 focus:border-primary focus:ring-primary/20'} text-white outline-none focus:ring-2 transition-all`}
+                  aria-describedby="password-requirements"
                   {...register('password')}
                 />
                 <button
@@ -107,6 +113,9 @@ function Signup() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <p id="password-requirements" className="text-xs text-base-content/55 leading-relaxed mt-1.5">
+                Use 8+ characters with uppercase and lowercase letters, a number, and a special character.
+              </p>
               <div className={`overflow-hidden transition-all duration-300 ${errors.password ? 'max-h-10 opacity-100 mt-1.5' : 'max-h-0 opacity-0'}`}>
                 <span className="text-error text-xs font-medium">{errors.password?.message}</span>
               </div>

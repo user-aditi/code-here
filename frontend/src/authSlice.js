@@ -131,7 +131,9 @@ const authSlice = createSlice({
       })
       .addCase(checkAuth.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'Something went wrong';
+        // A 401 here simply means the visitor has no active session yet.
+        // It must not show an error on the login or signup screen.
+        state.error = action.payload?.message || null;
         state.isAuthenticated = false;
         state.user = null;
       })
