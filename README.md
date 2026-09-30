@@ -38,7 +38,7 @@ sequenceDiagram
 ### AI-Powered DSA Tutor
 The platform includes an integrated AI tutor specifically engineered to help students learn Data Structures and Algorithms without cheating.
 
-- **Groq Integration (Llama 3):** Leverages lightning-fast inference to provide real-time, context-aware coding assistance directly beside the code editor.
+- **Groq Integration (OpenAI gpt-oss-120b):** Leverages the `openai/gpt-oss-120b` model through Groq for real-time, context-aware coding assistance directly beside the code editor. The model can be changed without code changes through `GROQ_MODEL`.
 - **Context Injection:** Feeds the exact problem description, visible test cases, and the user's currently typed code directly into the AI model's context window.
 - **Strict Educational Guardrails:** Configured via system prompts to act strictly as a tutor. It breaks down approaches, offers hints, and analyzes time/space complexity rather than writing the solution outright.
 - **Fault-Tolerant Key Rotation:** Features a robust array-based API key rotation mechanism. If the active API key hits a rate limit (429) or fails, the backend seamlessly swaps to the next key and retries without dropping the user's request.
@@ -139,7 +139,7 @@ graph TD
     end
 
     subgraph External [External Services]
-        GroqAPI[Groq API Llama 3]
+        GroqAPI[Groq API: OpenAI gpt-oss-120b]
         Judge0[Judge0 Evaluation API]
         Cloud[Cloudinary CDN]
     end
@@ -225,7 +225,7 @@ erDiagram
 - bcrypt, jsonwebtoken, cookie-parser
 
 **External APIs**
-- Groq AI (Llama 3)
+- Groq AI (`openai/gpt-oss-120b`)
 - Judge0
 - Cloudinary
 
@@ -279,6 +279,7 @@ UPSTASH_REDIS_REST_URL=your_upstash_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
 JUDGE0_KEYS=key1,key2,key3
 GROQ_API_KEYS=key1,key2,key3
+GROQ_MODEL=openai/gpt-oss-120b
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret

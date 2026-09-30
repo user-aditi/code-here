@@ -1,9 +1,5 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
-import {
-  LayoutDashboard, Users, Code2, BookOpen, ClipboardList, FileText,
-  Trophy, BarChart3, Megaphone, Bot, Settings, LogOut
-} from "lucide-react";
+import { Code2, Settings, LogOut } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { logoutUser } from "../../authSlice";
 
@@ -11,9 +7,6 @@ const navItems = [
   { id: "problems", label: "Problems", icon: Code2 },
   { id: "settings", label: "Settings", icon: Settings },
 ];
-
-// Activity is missing from lucide imports in original, adding fallback
-import { Activity } from "lucide-react";
 
 function AdminSidebar({ activeSection, setActiveSection }) {
   const dispatch = useDispatch();

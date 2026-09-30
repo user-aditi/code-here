@@ -1,6 +1,7 @@
 const Groq = require("groq-sdk");
 
 let currentGroqKeyIndex = 0;
+const groqModel = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const getGroqKeys = () => {
     if (process.env.GROQ_API_KEYS) {
         return process.env.GROQ_API_KEYS.split(',').map(k => k.trim());
@@ -19,7 +20,7 @@ const solveDoubtWithRotation = async (formattedMessages) => {
         try {
             const chatCompletion = await groq.chat.completions.create({
                 messages: formattedMessages,
-                model: "llama-3.1-8b-instant",
+                model: groqModel,
             });
             return chatCompletion.choices[0]?.message?.content || "";
         } catch (error) {
@@ -110,7 +111,7 @@ You are an expert Data Structures and Algorithms (DSA) tutor specializing in hel
 Remember: Your goal is to help users learn and understand DSA concepts through the lens of the current problem, not just to provide quick answers.
 `;
 
-        // Convert frontend Gemini format to Groq/OpenAI format
+        // Convert the frontend message format to Groq/OpenAI format
         const formattedMessages = messages.map(msg => ({
             role: msg.role === 'model' ? 'assistant' : msg.role,
             content: msg.parts[0].text

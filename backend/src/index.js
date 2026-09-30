@@ -16,12 +16,16 @@ const cors = require('cors')
 // console.log("Hello")
 
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map((url) => url.trim()),
     credentials: true 
 }))
 
 app.use(express.json());
 app.use(cookieParser());
+
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
 
 app.use('/user',authRouter);
 app.use('/problem',problemRouter);
@@ -38,8 +42,9 @@ const InitalizeConnection = async ()=>{
         await Promise.all([main(),redisClient.connect()]);
         console.log("DB Connected");
         
-        app.listen(process.env.PORT, ()=>{
-            console.log("Server listening at port number: "+ process.env.PORT);
+        const port = process.env.PORT || 3000;
+        app.listen(port, ()=>{
+            console.log("Server listening at port number: "+ port);
         })
 
     }

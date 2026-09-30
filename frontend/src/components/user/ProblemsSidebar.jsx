@@ -24,7 +24,7 @@ function ProblemsSidebar({ activeFilter, setActiveFilter }) {
         { icon: Star, label: "Bookmarked", count: user?.bookmarkedProblems?.length || 0, id: "fav" },
         { icon: CheckCircle, label: "Solved", count: user?.problemSolved?.length || 0, id: "solved" },
         { icon: Circle, label: "Unsolved", count: totalProblems ? Math.max(0, totalProblems - (user?.problemSolved?.length || 0)) : "—", id: "unsolved" },
-      ].map(({ icon: Icon, label, count, id }) => (
+      ].map(({ icon, label, count, id }) => (
         <button
           key={id}
           onClick={() => setActiveFilter(id)}
@@ -32,7 +32,7 @@ function ProblemsSidebar({ activeFilter, setActiveFilter }) {
             activeFilter === id ? "bg-primary/10 text-primary" : "text-base-content/70 hover:text-base-content hover:bg-base-200/60"
           }`}
         >
-          <div className="flex items-center gap-2.5"><Icon className="w-4 h-4" />{label}</div>
+          <div className="flex items-center gap-2.5">{React.createElement(icon, { className: "w-4 h-4" })}{label}</div>
           <span className="text-xs">{count}</span>
         </button>
       ))}

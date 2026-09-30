@@ -34,7 +34,7 @@ function AdminProblemsTable() {
       try {
         await axiosClient.delete(`/problem/delete/${id}`);
         fetchProblems(); // refresh list
-      } catch (error) {
+      } catch {
         alert("Failed to delete problem");
       }
     }

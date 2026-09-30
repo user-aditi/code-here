@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const axiosClient = axios.create({
-    baseURL: 'http://localhost:3000',
+    // Set VITE_API_BASE_URL to the deployed API URL in the hosting provider.
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
     withCredentials: true, // Keep this if you use cookies
 });
 

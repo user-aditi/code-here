@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Search, Bell, ChevronDown, User, Settings, LogOut, Code2, Flame, FileCode } from "lucide-react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Bell, ChevronDown, User, Settings, LogOut, Code2, Flame } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutUser } from "../../authSlice";
 import axiosClient from "../../utils/axiosClient";
@@ -8,7 +8,6 @@ import { useEffect } from "react";
 
 function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
-  const location = useLocation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
@@ -26,8 +25,6 @@ function Navbar() {
     };
     if (user) fetchStats();
   }, [user, user?.problemSolved?.length]);
-
-  const currentPage = location.pathname.split('/')[1] || 'problems';
 
   const handleLogout = () => {
     dispatch(logoutUser());
@@ -93,13 +90,13 @@ function Navbar() {
               {[
                 { icon: User, label: "Profile", path: "/profile" },
                 { icon: Settings, label: "Settings", path: "/settings" },
-              ].map(({ icon: Icon, label, path }) => (
+              ].map(({ icon, label, path }) => (
                 <Link
                   key={label}
                   to={path}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
                 >
-                  <Icon className="w-4 h-4" />{label}
+                  {React.createElement(icon, { className: "w-4 h-4" })}{label}
                 </Link>
               ))}
               <div className="h-px bg-white/10 my-1" />

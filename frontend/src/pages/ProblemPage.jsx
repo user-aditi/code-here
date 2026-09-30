@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { ArrowLeft, Code2, PanelLeft, Play, Upload, Sparkles, Timer, Flame, ChevronDown, User, Settings, LogOut, CheckCircle, Clock, X, Lightbulb, ChevronRight, ChevronLeft, ChevronUp, TerminalSquare, Plus, Video, RotateCcw, RefreshCw, Send, Search, List, FileText, BookOpen, CheckSquare } from 'lucide-react';
@@ -49,7 +49,6 @@ export default function ProblemPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [openHints, setOpenHints] = useState([]);
   const [elapsed, setElapsed] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -63,7 +62,6 @@ export default function ProblemPage() {
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
   const aiPanelRef = useRef(null);
-  const editorRef = useRef(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -250,9 +248,9 @@ export default function ProblemPage() {
                 {[
                   { icon: User, label: "Profile", path: "/profile" },
                   { icon: Settings, label: "Settings", path: "/settings" },
-                ].map(({ icon: Icon, label, path }) => (
+                ].map(({ icon, label, path }) => (
                   <Link key={label} to={path} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                    <Icon className="w-3.5 h-3.5" />{label}
+                    {React.createElement(icon, { className: "w-3.5 h-3.5" })}{label}
                   </Link>
                 ))}
                 <div className="h-px bg-white/10 my-1" />
@@ -337,13 +335,13 @@ export default function ProblemPage() {
                     { id: 'solutions', label: 'Solutions', icon: Lightbulb },
                     { id: 'submissions', label: 'Submissions', icon: Clock },
                     { id: 'results', label: 'Results', icon: TerminalSquare }
-                  ].map(({ id, label, icon: Icon }) => (
+                  ].map(({ id, label, icon }) => (
                     <button
                       key={id}
                       onClick={(e) => { e.stopPropagation(); setActiveLeftTab(id); leftPanelRef.current?.resize(45); setLeftCollapsed(false); }}
                       className={`flex flex-col items-center gap-1.5 transition-colors group p-2 rounded-lg hover:bg-white/5 ${activeLeftTab === id ? 'text-white' : 'text-slate-500'}`}
                     >
-                      <Icon className="w-4 h-4 group-hover:text-white transition-colors" />
+                      {React.createElement(icon, { className: "w-4 h-4 group-hover:text-white transition-colors" })}
                       <span
                         className="text-[10px] font-medium tracking-widest uppercase group-hover:text-white transition-colors"
                         style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}

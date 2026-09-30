@@ -42,7 +42,6 @@ export default function ProfilePage() {
     totalStats: { all: 0, easy: 0, medium: 0, hard: 0 },
     solvedStats: { all: 0, easy: 0, medium: 0, hard: 0 }
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -78,14 +77,10 @@ export default function ProfilePage() {
         });
       } catch (err) {
         console.error("Failed to fetch stats", err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchStats();
   }, [user]);
-
-  const totalSolved = user?.problemSolved?.length || 0;
 
   const renderCircularStats = () => {
     const total = stats.totalStats?.all || 1;
